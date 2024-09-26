@@ -9,6 +9,7 @@ public:
 public:
     virtual HRESULT Init() override;
     virtual void Tick() override;
+	virtual shared_ptr<MonoBehaviour> Copy_Script()override { return make_shared<ObjectDissolve>(m_fDissolveSpeed,m_pTexture.lock()); }
 
 
 public:

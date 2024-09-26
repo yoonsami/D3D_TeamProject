@@ -10,7 +10,7 @@
 #include "DemoAnimationController1.h"
 #include "DemoFSM.h"
 #include "Imgui_Manager.h"
-
+#include "WaterUVSliding.h"
 
 GranseedScene::GranseedScene()
 {
@@ -80,13 +80,16 @@ void GranseedScene::Render_SampleMapObject()
 
 HRESULT GranseedScene::Load_Scene()
 {
-	RESOURCES.CreateModel(L"..\\Resources\\Models\\");
+	RESOURCES.CreateModel(L"..\\Resources\\Models\\MapObject\\Skybox\\");
+	RESOURCES.CreateModel(L"..\\Resources\\Models\\MapObject\\Field\\");
+	RESOURCES.CreateModel(L"..\\Resources\\Models\\Character\\Hero\\Spear_Ace\\");
 	Load_DemoModel();
 	shared_ptr<GameObject> sky = make_shared<GameObject>();
 	sky->GetOrAddTransform();
 	sky->Add_Component(make_shared<ModelRenderer>(RESOURCES.Get<Shader>(L"SkyBox.fx")));
 	sky->Get_ModelRenderer()->Set_Model(RESOURCES.Get<Model>(L"SkyBox"));
 	sky->Set_Name(L"SkyBase");
+	sky->Add_Component(make_shared<WaterUVSliding>());
 	Add_GameObject(sky);
 
 	Load_Light();
@@ -98,7 +101,6 @@ HRESULT GranseedScene::Load_Scene()
 void GranseedScene::Load_DemoModel()
 {
 	{
-
 		shared_ptr<GameObject> testObj = make_shared<GameObject>();
 		// Transform Component
 

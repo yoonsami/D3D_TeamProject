@@ -36,6 +36,9 @@ public:
 public:
 	void Render_Instancing(shared_ptr<InstancingBuffer>& buffer, shared_ptr<InstanceRenderParamDesc> renderParamDesc);
 	void Render();
+
+	void Render_Water();
+
 	InstanceID Get_InstanceID();
 
 private:

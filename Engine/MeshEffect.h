@@ -1,7 +1,7 @@
 #pragma once
 #include "Component.h"
 #include "MeshEffectData.h"
-
+class StructuredBuffer;
 class MeshEffect : public Component
 {
 public:
@@ -12,8 +12,11 @@ public:
     virtual void            Init(void* pArg);
     virtual void            Tick() override;
     virtual void            Final_Tick() override;
+	virtual void            MeshEffect_Tick() ;
+	virtual void            MeshEffect_Final_Tick();
     void                    Render();
-
+    void                    Render_Instancing(shared_ptr<InstancingBuffer> buffer, shared_ptr<StructuredBuffer> pRenderParamBuffer);
+    void                    Update_RenderParams();
     void                    Update_Desc();
 
     void                    InitialTransform(_float4x4 mParentWorldMatrix, const _float3& vInitPos_inGroup, const _float3& vInitScale_inGroup, const _float3& vInitRotation_inGroup);
@@ -24,6 +27,8 @@ public:
     void                    Set_Lock(_bool bIsLocked) { m_bIsLocked = bIsLocked; }
     void                    Set_Loop(_bool bIsLoop) { m_tDesc.bIsLoop = bIsLoop; }
     void                    Set_ToolModeOn(_bool bIsToolMode) { m_bToolMode_On = bIsToolMode; }
+    void                    Set_RenderPriority(_int iPriority) { m_iRenderPriority = iPriority; }
+    void                    Set_Material();
 
     /* Getter */
     shared_ptr<Material>    Get_Material() { return m_pMaterial; }
@@ -35,6 +40,10 @@ public:
     const _float4x4&        Get_InitGroupMatrix() { return m_mInitGroupMatrix; }
     MeshEffectData::DESC&   Get_Desc() { return m_tDesc; }
     _float4x4               Get_LocalMatrix();
+    _int                    Get_RenderPriority() { return m_iRenderPriority; }
+    InstanceID              Get_InstanceID();
+    const RenderParams&     Get_RenderParamDesc() { return m_RenderParams; }
+    _float3&                Get_LocalPos() { return m_vLocalPos; }
 
     void                    Translate();
     void                    Scaling();
@@ -50,7 +59,8 @@ private:
     void                    Bind_UpdatedTexUVOffset_ToShader();
     void                    Bind_RenderParams_ToShader();
 
-    _float                  CalcSpeed();
+    _float                  Calc_Spline(_int iType, _float* vSplineInput);
+
 private:
     MeshEffectData::DESC            m_tDesc;
     MeshEffectData::Transform_Desc  m_tTransform_Desc;
@@ -108,6 +118,7 @@ private:
     _float                          m_fCurrYspeed = { 0.f };
 
     _float3                         m_vEndScale;
+    _float                          m_SplineInput_ScaleSpeed[8];
 
     _int                            m_iTurnOption;
     _float                          m_fTurnSpeed;
@@ -121,5 +132,8 @@ private:
 
     /* Data to bind Shader */
     RenderParams                    m_RenderParams{};
+
+    /* Render Priority */
+    _int                            m_iRenderPriority = { 0 };
 
 };

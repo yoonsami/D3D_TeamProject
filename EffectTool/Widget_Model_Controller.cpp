@@ -115,7 +115,7 @@ void Widget_Model_Controller::Apply_Model()
 			obj->GetOrAddTransform();
 			shared_ptr<ModelAnimator> animator = make_shared<ModelAnimator>(RESOURCES.Get<Shader>(L"Shader_Model.fx"));
 			obj->Add_Component(animator);
-			CUR_SCENE->Add_GameObject(obj);
+			EVENTMGR.Create_Object(obj);
 			m_pControlObject = obj;
 		}
 
@@ -131,39 +131,133 @@ void Widget_Model_Controller::Apply_Model()
 		m_pControlObject.lock()->Get_Animator()->Set_CurrentAnim(0);
 		m_pControlObject.lock()->Add_Component(make_shared<ForcePosition>());
 
-		CUR_SCENE->Remove_GameObject(CUR_SCENE->Get_GameObject(L"TestWeapon"));
+		EVENTMGR.Delete_Object(CUR_SCENE->Get_GameObject(L"TestWeapon"));
 
 		wstring weaponName;
 		if (model->Get_ModelTag() == L"Spear_Ace")
-			weaponName = L"Weapon_Spear_Ace";
-		else if (model->Get_ModelTag() == (L"Yeopo"))
-			weaponName = L"Weapon_Yeopo";
-		else if (model->Get_ModelTag() == (L"Dellons"))
-			weaponName = L"Weapon_Dellons";
-		else if (model->Get_ModelTag() == (L"Spike"))
-			weaponName = L"Weapon_Spike";
-		else if (model->Get_ModelTag() == (L"Shane"))
-			weaponName = L"Weapon_Shane";
-		else if (model->Get_ModelTag() == (L"Player"))
-			weaponName = L"Weapon_Player";
-
-		if(model->Get_ModelTag() != (L"Kyle") && model->Get_ModelTag() != (L"Yeonhee"))
 		{
-			shared_ptr<GameObject> ObjWeapon = make_shared<GameObject>();
-			ObjWeapon->Set_Name(L"TestWeapon");
-			ObjWeapon->GetOrAddTransform();
-			shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
-			shared_ptr<ModelRenderer> renderer = make_shared<ModelRenderer>(shader);
-			shared_ptr<Model> m = RESOURCES.Get<Model>(weaponName);
-			renderer->Set_Model(m);
-			ObjWeapon->Add_Component(renderer);
-			WeaponScript::WEAPONDESC desc;
-			desc.strBoneName = L"Bip001-Prop1";
-			desc.matPivot = _float4x4::CreateRotationX(-XM_PI / 2.f) * _float4x4::CreateRotationZ(XM_PI);
-			desc.pWeaponOwner = m_pControlObject.lock();
-			ObjWeapon->Add_Component(make_shared<WeaponScript>(desc));
-			CUR_SCENE->Add_GameObject(ObjWeapon);
+			weaponName = L"Weapon_Spear_Ace";
+			{
+				shared_ptr<GameObject> ObjWeapon = make_shared<GameObject>();
+				ObjWeapon->Set_Name(L"TestWeapon");
+				ObjWeapon->GetOrAddTransform();
+				shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
+				shared_ptr<ModelRenderer> renderer = make_shared<ModelRenderer>(shader);
+				shared_ptr<Model> m = RESOURCES.Get<Model>(weaponName);
+				renderer->Set_Model(m);
+				ObjWeapon->Add_Component(renderer);
+				WeaponScript::WEAPONDESC desc;
+				desc.strBoneName = L"Bip001-Prop1";
+				desc.matPivot = _float4x4::CreateRotationX(-XM_PI / 2.f) * _float4x4::CreateRotationZ(XM_PI);
+				desc.pWeaponOwner = m_pControlObject.lock();
+				ObjWeapon->Add_Component(make_shared<WeaponScript>(desc));
+				EVENTMGR.Create_Object(ObjWeapon);
+			}
 		}
+		else if (model->Get_ModelTag() == (L"Yeopo"))
+		{
+			weaponName = L"Weapon_Yeopo";
+			{
+				shared_ptr<GameObject> ObjWeapon = make_shared<GameObject>();
+				ObjWeapon->Set_Name(L"TestWeapon");
+				ObjWeapon->GetOrAddTransform();
+				shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
+				shared_ptr<ModelRenderer> renderer = make_shared<ModelRenderer>(shader);
+				shared_ptr<Model> m = RESOURCES.Get<Model>(weaponName);
+				renderer->Set_Model(m);
+				ObjWeapon->Add_Component(renderer);
+				WeaponScript::WEAPONDESC desc;
+				desc.strBoneName = L"Bip001-Prop1";
+				desc.matPivot = _float4x4::CreateRotationX(-XM_PI / 2.f) * _float4x4::CreateRotationZ(XM_PI);
+				desc.pWeaponOwner = m_pControlObject.lock();
+				ObjWeapon->Add_Component(make_shared<WeaponScript>(desc));
+				EVENTMGR.Create_Object(ObjWeapon);
+			}
+		}
+		else if (model->Get_ModelTag() == (L"Dellons"))
+		{
+			weaponName = L"Weapon_Dellons";
+			{
+				shared_ptr<GameObject> ObjWeapon = make_shared<GameObject>();
+				ObjWeapon->Set_Name(L"TestWeapon");
+				ObjWeapon->GetOrAddTransform();
+				shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
+				shared_ptr<ModelRenderer> renderer = make_shared<ModelRenderer>(shader);
+				shared_ptr<Model> m = RESOURCES.Get<Model>(weaponName);
+				renderer->Set_Model(m);
+				ObjWeapon->Add_Component(renderer);
+				WeaponScript::WEAPONDESC desc;
+				desc.strBoneName = L"Bip001-Prop1";
+				desc.matPivot = _float4x4::CreateRotationX(-XM_PI / 2.f) * _float4x4::CreateRotationZ(XM_PI);
+				desc.pWeaponOwner = m_pControlObject.lock();
+				ObjWeapon->Add_Component(make_shared<WeaponScript>(desc));
+				EVENTMGR.Create_Object(ObjWeapon);
+			}
+		}
+		else if (model->Get_ModelTag() == (L"Spike"))
+		{
+			weaponName = L"Weapon_Spike";
+			{
+				shared_ptr<GameObject> ObjWeapon = make_shared<GameObject>();
+				ObjWeapon->Set_Name(L"TestWeapon");
+				ObjWeapon->GetOrAddTransform();
+				shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
+				shared_ptr<ModelRenderer> renderer = make_shared<ModelRenderer>(shader);
+				shared_ptr<Model> m = RESOURCES.Get<Model>(weaponName);
+				renderer->Set_Model(m);
+				ObjWeapon->Add_Component(renderer);
+				WeaponScript::WEAPONDESC desc;
+				desc.strBoneName = L"Bip001-Prop1";
+				desc.matPivot = _float4x4::CreateRotationX(-XM_PI / 2.f) * _float4x4::CreateRotationZ(XM_PI);
+				desc.pWeaponOwner = m_pControlObject.lock();
+				ObjWeapon->Add_Component(make_shared<WeaponScript>(desc));
+				EVENTMGR.Create_Object(ObjWeapon);
+			}
+		}
+		else if (model->Get_ModelTag() == (L"Shane"))
+		{
+			weaponName = L"Weapon_Shane";
+			{
+				shared_ptr<GameObject> ObjWeapon = make_shared<GameObject>();
+				ObjWeapon->Set_Name(L"TestWeapon");
+				ObjWeapon->GetOrAddTransform();
+				shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
+				shared_ptr<ModelRenderer> renderer = make_shared<ModelRenderer>(shader);
+				shared_ptr<Model> m = RESOURCES.Get<Model>(weaponName);
+				renderer->Set_Model(m);
+				ObjWeapon->Add_Component(renderer);
+				WeaponScript::WEAPONDESC desc;
+				desc.strBoneName = L"Bip001-Prop1";
+				desc.matPivot = _float4x4::CreateRotationX(-XM_PI / 2.f) * _float4x4::CreateRotationZ(XM_PI);
+				desc.pWeaponOwner = m_pControlObject.lock();
+				ObjWeapon->Add_Component(make_shared<WeaponScript>(desc));
+				EVENTMGR.Create_Object(ObjWeapon);
+			}
+		}
+		else if (model->Get_ModelTag() == (L"Player"))
+		{
+			weaponName = L"Weapon_Player";
+			{
+				shared_ptr<GameObject> ObjWeapon = make_shared<GameObject>();
+				ObjWeapon->Set_Name(L"TestWeapon");
+				ObjWeapon->GetOrAddTransform();
+				shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
+				shared_ptr<ModelRenderer> renderer = make_shared<ModelRenderer>(shader);
+				shared_ptr<Model> m = RESOURCES.Get<Model>(weaponName);
+				renderer->Set_Model(m);
+				ObjWeapon->Add_Component(renderer);
+				WeaponScript::WEAPONDESC desc;
+				desc.strBoneName = L"Bip001-Prop1";
+				desc.matPivot = _float4x4::CreateRotationX(-XM_PI / 2.f) * _float4x4::CreateRotationZ(XM_PI);
+				desc.pWeaponOwner = m_pControlObject.lock();
+				ObjWeapon->Add_Component(make_shared<WeaponScript>(desc));
+				EVENTMGR.Create_Object(ObjWeapon);
+			}
+		}
+
+
+		
+	
 	}
 }
 
@@ -195,6 +289,22 @@ void Widget_Model_Controller::Apply_Anim()
 
 	Checkbox("Position Force To Zero", &bSetPosition);
 	m_pControlObject.lock()->Get_Script<ForcePosition>()->bForcePosition = bSetPosition;
+
+	static _int startFrame = 0;
+	InputInt("Start Frame", &startFrame);
+	static _int endFrame = 0;
+	InputInt("End Frame", &endFrame);
+	auto animator = m_pControlObject.lock()->Get_Animator();
+
+	auto& tweenDesc = animator->Get_TweenDesc();
+
+	const auto& animation = animator->Get_Model()->Get_AnimationByIndex(tweenDesc.curr.animIndex);
+
+	_float timePerFrame = 1 / (animation->frameRate * animation->speed);
+
+	Text(("Time from StartFrame to EndFrame : " + to_string(timePerFrame * (endFrame - startFrame))).c_str());
+
+
 }
 
 void Widget_Model_Controller::Control_Anim()
@@ -207,7 +317,7 @@ void Widget_Model_Controller::Control_Anim()
 
 	static _float fKeyFrame = 0.f;
 
-	DragFloat("## anim", &fKeyFrame, 0.1f, 0.f, _float(animation->frameCount));
+	DragFloat("## anim", &fKeyFrame, 0.1f, 0.f, _float(animation->frameCount - 1));
 
 	_uint curFrame = _uint(fKeyFrame);
 	_uint nextFrame = curFrame + 1;

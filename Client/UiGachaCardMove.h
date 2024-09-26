@@ -4,23 +4,29 @@
 class UiGachaCardMove : public MonoBehaviour
 {
 public:
-    UiGachaCardMove(_uint iIndex);
+    UiGachaCardMove(_uint iIndex, _bool bValue);
 
 public:
     virtual HRESULT Init() override;
     virtual void Tick() override;
+	virtual shared_ptr<MonoBehaviour> Copy_Script() { return make_shared<UiGachaCardMove>(m_iIndex,m_bIsUnique); }
 
     void Card_Open();
+    void Add_Data();
 
 private:
     void Move();
     void Idle();
     void Open();
+    void End();
 
 private:
-   enum class STATE { START, IDLE, OPEN };
+    static _uint    iHeroIndex;
+
+   enum class STATE { START, IDLE, OPEN, END, NONE };
    STATE            m_eState            = { STATE::START };
 
+   _bool            m_bIsUnique         = { false };
    _uint            m_iIndex            = { 0 };
 
    _float           m_fMaxTime          = { 1.f };
@@ -43,5 +49,7 @@ private:
    CHANGE_TYPE      m_eOpenType         = { CHANGE_TYPE::DOWN };
    wstring          m_strTextureTag;
    HERO             m_eHero             = { HERO::MAX };
+
+   DUMMY_HERO       m_eDummyHero        = { DUMMY_HERO::MAX };
 };
 

@@ -15,7 +15,7 @@ HRESULT UiDamageCreate::Init()
     if (m_pOwner.expired())
         return E_FAIL;
 
-    m_pPlayer = CUR_SCENE->Get_GameObject(L"Player");
+    m_pPlayer = GET_PLAYER;
     m_pCamera = CUR_SCENE->Get_Camera(L"Default");
 
     if (true == m_bIsInit)
@@ -36,7 +36,7 @@ HRESULT UiDamageCreate::Init()
     return S_OK;
 }
 
-void UiDamageCreate::Create_Damage_Font(weak_ptr<GameObject> pObj)
+void UiDamageCreate::Create_Damage_Font(weak_ptr<GameObject> pObj, _float fDamage)
 {
     if (true == m_pOwner.expired() ||
         true == m_pPlayer.expired() ||
@@ -53,8 +53,8 @@ void UiDamageCreate::Create_Damage_Font(weak_ptr<GameObject> pObj)
     
     auto pFont = make_shared<GameObject>();
     pFont->GetOrAddTransform()->Set_State(Transform_State::POS, _float4(0.f, 0.f, 0.f, 1.f));
-
-    pFont->Add_Component(make_shared<FontRenderer>(L"1234"));
+   
+    pFont->Add_Component(make_shared<FontRenderer>(to_wstring(IDX(fDamage))));
     HERO eHero = m_pPlayer.lock()->Get_Script<CoolTimeCheckScript>()->Get_Cur_Hero();
 
     pFont->Get_FontRenderer()->Set_Font(RESOURCES.Get<CustomFont>(L"136ex"), m_Color[GET_DATA(eHero).Element], m_fSize);
@@ -63,7 +63,7 @@ void UiDamageCreate::Create_Damage_Font(weak_ptr<GameObject> pObj)
     
     pFont->Set_LayerIndex(Layer_UI);
     pFont->Init();
-    CUR_SCENE->Add_GameObject(pFont);
+    EVENTMGR.Create_Object(pFont);
 
     return;
 }

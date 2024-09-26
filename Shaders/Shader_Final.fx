@@ -32,7 +32,15 @@ float4 PS_Final(VS_OUT input) : SV_Target0
 
     output = SubMap0.Sample(LinearSampler, input.uv);
 
+    output.rgb += g_brightness;
 
+        // 대비 조절
+    output.rgb = (output.rgb - 0.5) * g_contrast + 0.5;
+
+        // 채도 조절
+    float luminance = dot(output.rgb, float3(0.3, 0.59, 0.11));
+    output.rgb = lerp(luminance, output.rgb, g_saturation);
+    
     //output.rgb = pow(abs(output.rgb), 1.f / GAMMA);
     return output;
 }
@@ -135,21 +143,15 @@ float g_DOFRange;
 
 float4 PS_ExtractDOF(VS_OUT input) : SV_Target
 {
-    float depth = SubMap2.Sample(PointSampler, input.uv).w;
     float3 originalColor = SubMap0.Sample(PointSampler, input.uv).rgb;
-    if ((1.f / g_DOFRange * abs(g_FocusDepth - depth)) >= 1.f)
-    {
-        return float4(originalColor, 1.f);
-    }
-    else
-        discard;
-    return 0.f;
+
+    return float4(originalColor, 1.f);
     
 }
 
 float4 PS_DOF(VS_OUT input) : SV_Target
 {
-    float depth = SubMap2.Sample(PointSampler, input.uv).w;
+    float viewZ = SubMap2.Sample(PointSampler, input.uv).z;
     
     float3 originalColor = SubMap0.Sample(PointSampler, input.uv).rgb;
     float3 blurColor = SubMap1.Sample(PointSampler, input.uv).rgb;
@@ -161,13 +163,27 @@ float4 PS_DOF(VS_OUT input) : SV_Target
     //else
     //    outColor = originalColor;
     
-    float blendFactor = saturate(1.f / g_DOFRange * abs(g_FocusDepth - depth));
-    if (1.f / g_DOFRange * abs(g_FocusDepth - depth) < 1.f)
-        outColor = originalColor;
-    else
-        outColor = lerp(originalColor, blurColor, blendFactor);
+    float blendFactor = saturate(1.f / g_DOFRange * abs(g_FocusDepth - viewZ));
+ 
+    outColor = lerp(originalColor, blurColor, blendFactor);
     
     return float4(outColor, 1.f);
+}
+
+float g_fVignettePower;
+
+float4 PS_Vignette(VS_OUT input) : SV_Target
+{
+    float4 originColor = SubMap0.Sample(LinearSampler, input.uv);
+    
+    float2 uv = input.uv;
+    uv *= 1.f - uv.yx;
+    float vig = uv.x * uv.y * 15.f;
+    
+    vig = pow(vig, g_fVignettePower);
+    
+    
+    return originColor * vig;
 }
 
 cbuffer FogBuffer
@@ -182,7 +198,7 @@ cbuffer FogBuffer
 float4 PS_Fog(VS_OUT input) : SV_Target
 {
     float4 color = SubMap0.Sample(LinearSampler, input.uv);
-    float viewZ = SubMap1.Sample(LinearSampler, input.uv).w;
+    float viewZ = SubMap1.Sample(LinearSampler, input.uv).z;
     float fogFactor = 1.f;
     
     if(fogMode == 0)//Linear
@@ -271,7 +287,15 @@ technique11 T1_AfterEffect
         SetBlendState(BlendOff, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
         SetPixelShader(CompileShader(ps_5_0, PS_ExtractDOF()));
     }
-  
+    Pass pass_Vignette
+    {
+        SetVertexShader(CompileShader(vs_5_0, VS_Final()));
+        SetGeometryShader(NULL);
+        SetRasterizerState(RS_Default);
+        SetDepthStencilState(DSS_NO_DEPTH_TEST_NO_WRITE, 0);
+        SetBlendState(BlendOff, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
+        SetPixelShader(CompileShader(ps_5_0, PS_Vignette()));
+    }
 };
 
 technique11 T2_RenderFinal

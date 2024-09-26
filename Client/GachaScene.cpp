@@ -47,7 +47,6 @@
 #include "DemoAnimationController1.h"
 #include "UiCardDeckController.h"
 #include "MainUiController.h"
-#include "UiCardDeckInvenChange.h"
 
 #include <filesystem>
 #include "Player_FSM.h"
@@ -67,6 +66,8 @@ void GachaScene::Init()
 {
 	Load_Scene();
 	__super::Init();
+	if(Get_GameObject(L"Yeopo_RedHorse"))
+	Get_GameObject(L"Yeopo_RedHorse")->Get_Transform()->Set_WorldMat(Get_GameObject(L"Yeopo")->Get_Transform()->Get_WorldMatrix());
 }
 
 void GachaScene::Tick()
@@ -91,9 +92,10 @@ void GachaScene::Final_Tick()
 HRESULT GachaScene::Load_Scene()
 {
 	auto player = Load_Player();
-	Load_Light();
 	Load_Camera();
 	Load_MapFile(m_Desc.strMapFileName, player);
+	Load_Ui();
+
 	return S_OK;
 }
 
@@ -111,7 +113,8 @@ shared_ptr<GameObject> GachaScene::Load_Player()
 	wstring modelName = L"";
 
 	ObjPlayer->Set_DrawShadow(true);
-	ObjPlayer->Set_ObjectGroup(OBJ_PLAYER);
+	ObjPlayer->Set_VelocityMap(true);
+	ObjPlayer->Set_ObjectGroup(OBJ_TEAM);
 	Add_GameObject(ObjPlayer);
 	Gacha_FSM_Desc desc;
 	shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
@@ -157,9 +160,11 @@ shared_ptr<GameObject> GachaScene::Load_Player()
 					shared_ptr<Model> model = RESOURCES.Get<Model>(L"Yeopo_Horse");
 					renderer->Set_Model(model);
 				}
-
 				ObjVehicle->Add_Component(renderer);
+				ObjVehicle->Set_DrawShadow(true);
+				ObjVehicle->Set_VelocityMap(true);
 				renderer->Set_CurrentAnim(L"SQ_SpecialHero_Yeopo_Horse", false, 1.f);
+				renderer->Set_RenderState(true);
 			}
 
 			ObjVehicle->Set_Name(L"Yeopo_RedHorse");
@@ -210,6 +215,52 @@ void GachaScene::Load_Camera()
 		camera->Get_Camera()->Set_CullingMaskLayerOnOff(Layer_UI, true);
 
 		Add_GameObject(camera);
+	}
+	{
+		shared_ptr<GameObject> camera = make_shared<GameObject>();
+
+		camera->GetOrAddTransform()->Set_State(Transform_State::POS, _float4(0.f, 0.f, 0.f, 1.f));
+
+		CameraDesc desc;
+		desc.fFOV = XM_PI / 3.f;
+		desc.strName = L"UI_Cam";
+		desc.fSizeX = _float(g_iWinSizeX);
+		desc.fSizeY = _float(g_iWinSizeY);
+		desc.fNear = 0.1f;
+		desc.fFar = 1000.f;
+		shared_ptr<Camera> cameraComponent = make_shared<Camera>(desc);
+
+		camera->Add_Component(cameraComponent);
+
+		camera->Get_Camera()->Set_ProjType(ProjectionType::Orthographic);
+
+		camera->Get_Camera()->Set_CullingMaskAll();
+		camera->Get_Camera()->Set_CullingMaskLayerOnOff(Layer_UI, false);
+
+		Add_GameObject(camera);
+	}
+}
+
+void GachaScene::Load_Ui()
+{
+	list<shared_ptr<GameObject>> tmp;
+	Load_UIFile(L"..\\Resources\\UIData\\UI_GachaScene.dat", tmp);
+
+	auto& pData = GET_DATA(m_Desc.eHeroType);
+	{
+		auto pObj = Get_UI(L"UI_GachaScene_Mark");
+		if (pObj)
+			pObj->Get_MeshRenderer()->Get_Material()->Set_TextureMap(RESOURCES.Get<Texture>(pData.KeyAttack), TextureMapType::DIFFUSE);
+	}
+	{
+		auto pObj = Get_UI(L"UI_GachaScene_Info");
+		if (pObj)
+			pObj->Get_FontRenderer()->Get_Text() = pData.KeyHeroInfo;
+	}
+	{
+		auto pObj = Get_UI(L"UI_GachaScene_Name");
+		if (pObj)
+			pObj->Get_FontRenderer()->Get_Text() = pData.KeyHeroName;
 	}
 }
 

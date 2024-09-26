@@ -350,9 +350,31 @@ float4 PS_Final2(VS_OUT input) : SV_Target
     uint width, height, numMips;
     SubMap1.GetDimensions(0, width, height, numMips);
     float2 vLightUV = g_LightUV;
+    float fLightDepth;
+    float fDepth;
+    float4 vLightPos = SubMap1.Sample(PointSampler, vLightUV);
+    float4 vViewPos = SubMap1.Sample(PointSampler, input.uv);
     
-    float fLightDepth = SubMap1.Sample(PointSampler, vLightUV).r;
-    float fDepth = SubMap1.Sample(PointSampler, input.uv).r;
+    if (vLightPos.w == 0.f)
+        fLightDepth = 1.f;
+    else
+    {
+        vLightPos = mul(vLightPos, P);
+        fLightDepth = vLightPos.z / vLightPos.w;
+    }
+    
+    if(vViewPos.w == 0.f)
+        fDepth = 1.f;
+    else
+    {
+        vViewPos = mul(vViewPos, P);
+        fDepth = vViewPos.z / vViewPos.w;
+    }
+    
+        
+   
+   
+    
     
     float dU = 1.f / (float) width;
     float dV = 1.f / (float) height;
@@ -360,7 +382,9 @@ float4 PS_Final2(VS_OUT input) : SV_Target
     float fLightPower = 0;
     for (int j = 0; j < 25;++j)
     {
-        if (SubMap1.Sample(PointSampler, vLightUV + offset[j] * float2(dU, dV) * 2).r >= 0.999f)
+        float4 vPos = SubMap1.Sample(PointSampler, vLightUV + offset[j] * float2(dU, dV) * 2);
+        
+        if(vPos.w == 0.f )
             fLightPower += 1;
     }
     fLightPower /= 25;

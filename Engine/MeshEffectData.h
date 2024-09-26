@@ -7,9 +7,10 @@ public:
     typedef struct tagMeshEffectVData
     {
         // Property
-        const char* pszTag = {""};
+        string      strTag = {""};
         _float      fDuration = { 0.f };
-        _bool       bBlurOn = { false };
+        _bool       bLightOn = { false };
+        _float      fLightIntensity = { 0.f };
         _bool       bUseFadeOut = { false };
         _int        iMeshCnt = { 1 };
         _float      fCreateInterval = {0.f};
@@ -18,6 +19,8 @@ public:
         _bool       bIsLoop = { false };
         _bool       bIsFollowingGroup_OnlyTranslate = { false };
         _bool       bIsFollowingGroup_LooKSameDir = { false };
+        _bool       bIsFDistortion = { false };
+        _bool       bIsSSD = { false };
 
         // Mesh 
         string      strVfxMesh = {""};
@@ -130,6 +133,8 @@ public:
         // Scaling 
         _int        iScalingOption = { 0 };
         _float3     vEndScale = { 0.f, 0.f, 0.f };
+        _int        iScaleSpeedType = { 0 };
+        _float2     vCurvePoint_Scale[4] = { { 0.f, 0.f },{ 0.f, 0.f } ,{ 0.f, 0.f } ,{ 0.f, 0.f } };
 
         // Turn 
         _int        iTurnOption = { 0 };
@@ -148,16 +153,14 @@ public:
     virtual void    Load(const wstring& path) override;
 
     /* Setter */
-    void            Set_Desc(DESC tDesc);
+    void            Set_Desc(DESC tDesc) { m_tDesc = tDesc; }
     void            Set_TransformDesc(Transform_Desc tDesc) { m_tTransformDesc = tDesc; }
 
     /* Getter */
-    wstring         Get_MeshEffectDataTag() { return m_wstrTag; }
     DESC            Get_Desc() { return m_tDesc; }
     Transform_Desc  Get_TransformDesc() { return m_tTransformDesc; }
 
 private:
-    wstring         m_wstrTag;
     DESC            m_tDesc;
     Transform_Desc  m_tTransformDesc;
 };

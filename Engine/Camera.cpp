@@ -3,8 +3,10 @@
 
 #include "Scene.h"
 #include "Particle.h"
+#include "TerrainRenderer.h"
 #include "MeshEffect.h"
 #include "MeshRenderer.h"
+#include "GroupEffect.h"
 #include "FontRenderer.h"
 #include "ModelRenderer.h"
 #include "ModelAnimator.h"
@@ -20,8 +22,8 @@ Camera::Camera(CameraDesc desc)
 
 Camera::~Camera()
 {
-}
 
+}
 HRESULT Camera::Init()
 {
 	return S_OK;
@@ -61,12 +63,16 @@ void Camera::Sort_GameObject(shared_ptr<Scene> scene)
 	//Frustum Check
 
 	m_Sky.clear();
+	m_Water.clear();
 	m_Forward.clear();
 	m_Deferred.clear();
 	m_Particle.clear();
 	m_DistortionEffects.clear();
 	m_Trails.clear();
 	m_VelocityMapObj.clear();
+	m_AfterUI.clear();
+	m_Decal.clear();
+
 	for (auto& gameObject : gameObjects)
 	{
 		if (false == gameObject->Is_Render())
@@ -75,21 +81,26 @@ void Camera::Sort_GameObject(shared_ptr<Scene> scene)
 		if (gameObject->Get_MeshRenderer() == nullptr
 			&& gameObject->Get_ModelRenderer() == nullptr
 			&& gameObject->Get_Animator() == nullptr
-			//&& gameObject->Get_EffectRenderer() == nullptr
 			&& gameObject->Get_DistortionRenderer() == nullptr
 			&& gameObject->Get_Particle() == nullptr
-			&& gameObject->Get_MeshEffect() == nullptr
 			&& gameObject->Get_TrailRenderer() == nullptr
 			&& gameObject->Get_MotionTrailRenderer() == nullptr
-			&& gameObject->Get_FontRenderer() ==nullptr)
+			&& gameObject->Get_FontRenderer() == nullptr
+			&& gameObject->Get_TerrainRenderer() == nullptr
+			&& ((m_bEffectToolMode_On && gameObject->Get_MeshEffect() == nullptr) ||
+			    (!m_bEffectToolMode_On && gameObject->Get_GroupEffect() == nullptr))
+			)
 			continue;
+
+		if (gameObject->Get_LayerIndex() == Layer_AfterUI)
+			int a = 0;
 
 		if (IsCulled(gameObject->Get_LayerIndex()))
 			continue;
 
 		if (gameObject->Is_FrustumCulled())
 		{
-			if(frustum.Contain_Sphere(gameObject->Get_CullPos(), gameObject->Get_CullRadius()) == false)
+			if (frustum.Contain_Sphere(gameObject->Get_CullPos(), gameObject->Get_CullRadius()) == false)
 				continue;
 		}
 
@@ -98,6 +109,10 @@ void Camera::Sort_GameObject(shared_ptr<Scene> scene)
 		
 		if (gameObject->Get_ShaderType() == SHADER_TYPE::SKYBOX)
 			m_Sky.push_back(gameObject);
+		else if (gameObject->Get_TerrainRenderer())
+			m_Terrain = gameObject;
+		else if (gameObject->Get_ShaderType() == SHADER_TYPE::WATER)
+			m_Water.push_back(gameObject);
 		else if (gameObject->Get_TrailRenderer())
 			m_Trails.push_back(gameObject);
 		else if (gameObject->Get_MotionTrailRenderer())
@@ -106,17 +121,24 @@ void Camera::Sort_GameObject(shared_ptr<Scene> scene)
 			m_Forward.push_back(gameObject);
 		else if (gameObject->Get_ShaderType() == SHADER_TYPE::DEFERRED)
 			m_Deferred.push_back(gameObject);
+		else if (m_bEffectToolMode_On && gameObject->Get_MeshEffect() && !gameObject->Get_MeshEffect()->Get_Desc().bIsFDistortion && !gameObject->Get_MeshEffect()->Get_Desc().bIsSSD)
+			m_Forward.push_back(gameObject);
+		else if (!m_bEffectToolMode_On && gameObject->Get_GroupEffect())
+			m_Forward.push_back(gameObject);
 		else if (gameObject->Get_ShaderType() == SHADER_TYPE::FORWARD)
 			m_Forward.push_back(gameObject);
-		else if (gameObject->Get_ShaderType() == SHADER_TYPE::DISTORTION)
+		if (gameObject->Get_ShaderType() == SHADER_TYPE::DISTORTION)
 			m_DistortionEffects.push_back(gameObject);
-
 		
+		if (m_bEffectToolMode_On && gameObject->Get_MeshEffect()&& gameObject->Get_MeshEffect()->Get_Desc().bIsSSD)
+			m_Decal.push_back(gameObject);
+		else if (!m_bEffectToolMode_On && gameObject->Get_GroupEffect())
+			m_Decal.push_back(gameObject);
+
 		//if (gameObject->Get_ParticleSystem())
 		//	m_Particle.push_back(gameObject);
 		if (gameObject->Get_Particle())
 			m_Particle.push_back(gameObject);
-
 	}
 }
 
@@ -150,20 +172,12 @@ void Camera::Sort_ShadowObject(shared_ptr<Scene> scene)
 
 void Camera::Render_DistrotionEffects()
 {
-	sort(m_DistortionEffects.begin(), m_DistortionEffects.end(), [this](shared_ptr<GameObject>& a, shared_ptr<GameObject>& b) {
-		_float3 vPosA = a->Get_Transform()->Get_State(Transform_State::POS).xyz();
-		_float3 vPosB = b->Get_Transform()->Get_State(Transform_State::POS).xyz();
-
-		_float viewDepthA = _float3::Transform(vPosA, m_matView).z;
-		_float viewDepthB = _float3::Transform(vPosB, m_matView).z;
-
-		return viewDepthA > viewDepthB;
-		});
-
 	for (auto& obj : m_DistortionEffects)
 	{
-		if (obj->Get_DistortionRenderer())
-			obj->Get_DistortionRenderer()->Render();
+		if (m_bEffectToolMode_On && obj->Get_MeshEffect())
+			obj->Get_MeshEffect()->Render();
+		else if (!m_bEffectToolMode_On && obj->Get_GroupEffect())
+			obj->Get_GroupEffect()->Render_Distortion();
 	}
 }
 
@@ -261,8 +275,12 @@ void Camera::Render_Forward()
 	S_View = m_matView;
 	S_Proj = m_matProj;
 
+	for (auto& obj : m_Water)
+	{
+		if (obj->Get_MeshRenderer())
+			obj->Get_MeshRenderer()->Render_Water();
+	}
 
-	
 	for (auto& trail : m_Trails)
 	{
 		if (trail->Get_TrailRenderer())
@@ -297,45 +315,54 @@ void Camera::Render_Forward()
 
 			_float distanceASQ = (vCameraPos - vPosA).LengthSquared();
 			_float distanceBSQ = (vCameraPos - vPosB).LengthSquared();
-		/*	if (CMP(distanceASQ, distanceBSQ))
-			{
-				if (a->Get_MeshRenderer() && b->Get_EffectRenderer())
-					return false;
-				else if (a->Get_EffectRenderer() && b->Get_MeshRenderer())
-					return true;
-
-			}*/
+			
 
 			return distanceASQ > distanceBSQ; });
-	
+
+	for (auto& obj : m_Decal)
+	{
+		if (!m_bEffectToolMode_On && obj->Get_GroupEffect())
+			obj->Get_GroupEffect()->Render_Decal();
+		else if (m_bEffectToolMode_On && obj->Get_MeshEffect() && obj->Get_MeshEffect()->Get_Desc().bIsSSD)
+			obj->Get_MeshEffect()->Render();
+
+
+	}
+
 	for(auto& obj : m_Forward)
 	{
 		if (obj->Get_MeshRenderer())
 			obj->Get_MeshRenderer()->Render();
-
 		else if (obj->Get_ModelRenderer())
 			obj->Get_ModelRenderer()->Render();
-		else if (obj->Get_MeshEffect())
-			obj->Get_MeshEffect()->Render();
 		else if (obj->Get_Animator())
 			obj->Get_Animator()->Render();
+
+		// Effect
+		else if (m_bEffectToolMode_On && obj->Get_MeshEffect())
+			obj->Get_MeshEffect()->Render();
+		else if(!m_bEffectToolMode_On && obj->Get_GroupEffect())
+			obj->Get_GroupEffect()->Render();
+
+		// Font
 		if (obj->Get_FontRenderer())
 			obj->Get_FontRenderer()->Render();
 	}
-
 
 	for (auto& particle : m_Particle)
 	{
 		particle->Get_Particle()->Render();
 	}
-
-
 }
 
 void Camera::Render_Deferred()
 {
+
 	S_View = m_matView;
 	S_Proj = m_matProj;
+	if(m_Terrain)
+		m_Terrain->Get_TerrainRenderer()->Render();
+
 	INSTANCING.Render(m_Deferred);
 }
 
@@ -352,7 +379,26 @@ void Camera::Render_MotionBlur()
 {
 	S_View = m_matView;
 	S_Proj = m_matProj;
-	INSTANCING.Render_VelocityMap(m_VelocityMapObj);
+	for (auto& obj : m_VelocityMapObj)
+	{
+		if (obj->Get_ModelRenderer())
+			obj->Get_ModelRenderer()->Render_MotionBlur();
+		if (obj->Get_Animator())
+			obj->Get_Animator()->Render_MotionBlur();
+	}
+}
+
+void Camera::Render_AfterUI()
+{
+	S_View = m_matView;
+	S_Proj = m_matProj;
+	for (auto& obj : m_Deferred)
+	{
+		if (obj->Get_Animator())
+			obj->Get_Animator()->Render_Forward();
+		if (obj->Get_ModelRenderer())
+			obj->Get_ModelRenderer()->Render_Forward();
+	}
 }
 
 vector<shared_ptr<MonoBehaviour>>& Camera::Get_Scripts()

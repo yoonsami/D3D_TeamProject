@@ -27,10 +27,12 @@ public:										\
 #define RESOURCES				GET_SINGLE(ResourceMgr)
 #define INSTANCING				GET_SINGLE(InstancingMgr)
 #define SCENE					GET_SINGLE(SceneMgr)
+#define EVENTMGR				GET_SINGLE(EventMgr)
 #define CUR_SCENE				SCENE.Get_CurScene()
 
 #define fDT						TIME.GetfloatDeltaTime()
 #define dDT						TIME.GetdoubleDeltaTime()
+#define fABT					TIME.GetAbsoluteTime()
 
 #define KEYHOLD(keyType)		INPUT.GetButtonHold(keyType)
 #define KEYTAP(keyType)			INPUT.GetButtonTap(keyType)
@@ -47,3 +49,4 @@ public:										\
     ((DWORD)((((a)&0xff)<<24)|(((r)&0xff)<<16)|(((g)&0xff)<<8)|((b)&0xff)))
 
 #define MAX_LEVEL_COUNT 32
+#define SHADOWMAP_SIZE 8192.f

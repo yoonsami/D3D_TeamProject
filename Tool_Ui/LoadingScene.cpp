@@ -98,7 +98,7 @@ void LoadingScene::Create_LoadingBG()
 	LoadingBackGround->Set_Instancing(false);
 	Add_GameObject(LoadingBackGround);*/
 
-   Load_UIFile(L"..\\Resources\\UIData\\UI_Loading.dat", vector<shared_ptr<GameObject>>());
+   //Load_UIFile(L"..\\Resources\\UIData\\UI_Loading.dat", vector<shared_ptr<GameObject>>());
 }
 
 void LoadingScene::Create_LoadingBar()

@@ -45,10 +45,12 @@ HRESULT MainApp::Init()
 
 	COLLISION.Check_Group(_int(CollisionGroup::Player_Attack), _int(CollisionGroup::Monster_Body));
 	COLLISION.Check_Group(_int(CollisionGroup::Player_Skill), _int(CollisionGroup::Monster_Body));
+
 	COLLISION.Check_Group(_int(CollisionGroup::Monster_Attack), _int(CollisionGroup::Player_Body));
 	COLLISION.Check_Group(_int(CollisionGroup::Monster_Skill), _int(CollisionGroup::Player_Body));
-	COLLISION.Check_Group(_int(CollisionGroup::Player_Body), _int(CollisionGroup::MAPObject));
+		
 	COLLISION.Check_Group(_int(CollisionGroup::Monster_Attack), _int(CollisionGroup::MAPObject));
+	COLLISION.Check_Group(_int(CollisionGroup::Monster_Body), _int(CollisionGroup::MAPObject));
 
     return S_OK;
 }
@@ -57,15 +59,16 @@ void MainApp::Tick()
 {
 	GAMEINSTANCE.Tick_Engine();
 #ifdef _DEBUGTOOL
-DEBUGTOOL.Tick();
+	DEBUGTOOL.Tick();
 #endif // _DEBUGTOOL
-	Control_Option();
+
 }
 
 HRESULT MainApp::Render()
 {
 	GAMEINSTANCE.Render_Begin();
 	SCENE.Render();
+
 #ifdef _DEBUGTOOL
 	DEBUGTOOL.Render();
 #endif // _DEBUGTOOL
@@ -85,11 +88,6 @@ HRESULT MainApp::Open_Scene()
 
 }
 
-void MainApp::Control_Option()
-{
-
-}
-
 void MainApp::Load_Ui()
 {
 	wstring assetPath = L"..\\Resources\\Textures\\UITexture\\Loading\\";
@@ -105,3 +103,4 @@ void MainApp::Load_Ui()
 		RESOURCES.Load<Texture>(fileName, filePath);
 	}
 }
+

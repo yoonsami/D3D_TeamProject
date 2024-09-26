@@ -12,6 +12,10 @@
 #include "MathUtils.h"
 #include "UiDamageCreate.h"
 #include "UIBossHpBar.h"
+#include "ObjectDissolve.h"
+#include "CharacterController.h"
+#include "UiBossDialog.h"
+
 
 Boss_Dellons_FSM::Boss_Dellons_FSM()
 {
@@ -38,7 +42,7 @@ HRESULT Boss_Dellons_FSM::Init()
 
         m_pAttackCollider = attackCollider;
 
-        CUR_SCENE->Add_GameObject(m_pAttackCollider.lock());
+        EVENTMGR.Create_Object(m_pAttackCollider.lock());
         m_pAttackCollider.lock()->Get_Collider()->Set_Activate(false);
 
         m_pAttackCollider.lock()->Add_Component(make_shared<AttackColliderInfoScript>());
@@ -53,23 +57,29 @@ HRESULT Boss_Dellons_FSM::Init()
         m_iCamBoneIndex = m_pOwner.lock()->Get_Model()->Get_BoneIndexByName(L"Dummy_Cam");
         m_iSkillCamBoneIndex = m_pOwner.lock()->Get_Model()->Get_BoneIndexByName(L"Dummy_SkillCam");
 
-        m_fDetectRange = 7.f;
+        m_fDetectRange = 20.f;
         m_fRunSpeed = 6.5f;
         m_fSprintSpeed = 8.5f;
 
         if (!m_pTarget.expired())
             Get_Transform()->LookAt(m_pTarget.lock()->Get_Transform()->Get_State(Transform_State::POS));
 
+        if (!m_pOwner.expired())
+            m_pOwner.lock()->Add_Component(make_shared<UiBossDialog>());
 
         m_bInitialize = true;
     }
-
+	m_fNormalAttack_AnimationSpeed = 1.2f;
+	m_fSkillAttack_AnimationSpeed = 1.0f;
+	m_fEvade_AnimationSpeed = 1.5f;
 
     return S_OK;
 }
 
 void Boss_Dellons_FSM::Tick()
 {
+    DeadCheck();
+
     State_Tick();
 
     if (!m_pAttackCollider.expired())
@@ -77,8 +87,6 @@ void Boss_Dellons_FSM::Tick()
         //m_pAttack transform set forward
         m_pAttackCollider.lock()->Get_Transform()->Set_State(Transform_State::POS, Get_Transform()->Get_State(Transform_State::POS) + Get_Transform()->Get_State(Transform_State::LOOK) * 2.f + _float3::Up);
     }
-
-    Calculate_CamBoneMatrix();
 }
 
 void Boss_Dellons_FSM::State_Tick()
@@ -86,7 +94,7 @@ void Boss_Dellons_FSM::State_Tick()
     State_Init();
 
     m_iCurFrame = Get_CurFrame();
-
+    Recovery_Color();
     switch (m_eCurState)
     {
     case STATE::n_idle:
@@ -94,9 +102,6 @@ void Boss_Dellons_FSM::State_Tick()
         break;
     case STATE::talk_01:
         talk_01();
-        break;
-    case STATE::Intro:
-        Intro();
         break;
     case STATE::b_idle:
         b_idle();
@@ -194,25 +199,9 @@ void Boss_Dellons_FSM::State_Tick()
     case STATE::skill_501100:
         skill_501100();
         break;
-    case STATE::skill_901000:
-        skill_901000();
-        break;
-    case STATE::skill_901100:
-        skill_901100();
-        break;
-    case STATE::skill_902100:
-        skill_902100();
-        break;
-    case STATE::skill_903100:
-        skill_903100();
-        break;
-    case STATE::skill_904100:
-        skill_904100();
-        break;
     }
 
-    if (!m_pGroupEffect.expired())
-        m_pGroupEffect.lock()->Get_Transform()->Set_WorldMat(Get_Transform()->Get_WorldMatrix());
+    Update_GroupEffectWorldPos(Get_Owner()->Get_Transform()->Get_WorldMatrix());
 
     if (m_iPreFrame != m_iCurFrame)
         m_iPreFrame = m_iCurFrame;
@@ -229,9 +218,6 @@ void Boss_Dellons_FSM::State_Init()
             break;
         case STATE::talk_01:
             talk_01_Init();
-            break;
-        case STATE::Intro:
-            Intro_Init();
             break;
         case STATE::b_idle:
             b_idle_Init();
@@ -329,63 +315,28 @@ void Boss_Dellons_FSM::State_Init()
         case STATE::skill_501100:
             skill_501100_Init();
             break;
-        case STATE::skill_901000:
-            skill_901000_Init();
-            break;
-        case STATE::skill_901100:
-            skill_901100_Init();
-            break;
-        case STATE::skill_902100:
-            skill_902100_Init();
-            break;
-        case STATE::skill_903100:
-            skill_903100_Init();
-            break;
-        case STATE::skill_904100:
-            skill_904100_Init();
-            break;
         }
         m_ePreState = m_eCurState;
     }
 }
 
-void Boss_Dellons_FSM::OnCollision(shared_ptr<BaseCollider> pCollider, _float fGap)
+void Boss_Dellons_FSM::Get_Hit(const wstring& skillname, _float fDamage, shared_ptr<GameObject> pLookTarget)
 {
-}
-
-void Boss_Dellons_FSM::OnCollisionEnter(shared_ptr<BaseCollider> pCollider, _float fGap)
-{
-    if (pCollider->Get_Owner() == nullptr)
-        return;
-
-    wstring strSkillName = pCollider->Get_Owner()->Get_Script<AttackColliderInfoScript>()->Get_SkillName();
-
-    if (!m_bInvincible)
+    if (!m_bSuperArmor)
     {
-        shared_ptr<GameObject> targetToLook = nullptr;
-        // skillName에 _Skill 포함이면
-        if (strSkillName.find(L"_Skill") != wstring::npos)
-        {
-            targetToLook = pCollider->Get_Owner(); // Collider owner를 넘겨준다
-        }
-        else // 아니면
-            targetToLook = pCollider->Get_Owner()->Get_Script<AttackColliderInfoScript>()->Get_ColliderOwner(); // Collider를 만든 객체를 넘겨준다
-
-        if (targetToLook == nullptr)
-            return;
-
-        CUR_SCENE->Get_GameObject(L"UI_Damage_Controller")->Get_Script<UiDamageCreate>()->Create_Damage_Font(Get_Owner());
-        Get_Hit(strSkillName, targetToLook);
+        if (rand() % 4 == 0)
+            m_bEvade = true;
     }
-}
+    else
+        m_bEvade = false;
 
-void Boss_Dellons_FSM::OnCollisionExit(shared_ptr<BaseCollider> pCollider, _float fGap)
-{
-}
+    if (!m_bEvade)
+    {
+        //Calculate Damage 
+        m_pOwner.lock()->Get_Hurt(fDamage);
+        CUR_SCENE->Get_UI(L"UI_Damage_Controller")->Get_Script<UiDamageCreate>()->Create_Damage_Font(Get_Owner(), fDamage);
+    }
 
-void Boss_Dellons_FSM::Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookTarget)
-{
-    CUR_SCENE->Get_UI(L"UI_Damage_Controller")->Get_Script<UiDamageCreate>()->Create_Damage_Font(Get_Owner());
 
     _float3 vMyPos = Get_Transform()->Get_State(Transform_State::POS).xyz();
     _float3 vOppositePos = pLookTarget->Get_Transform()->Get_State(Transform_State::POS).xyz();
@@ -393,88 +344,85 @@ void Boss_Dellons_FSM::Get_Hit(const wstring& skillname, shared_ptr<GameObject> 
     m_vHitDir = vOppositePos - vMyPos;
     m_vHitDir.y = 0.f;
     m_vHitDir.Normalize();
+	Set_HitColor();
 
     if (skillname == NORMAL_ATTACK || skillname == NORMAL_SKILL)
     {
         if (!m_bSuperArmor)
         {
-            if (m_eCurState == STATE::hit)
-                Reset_Frame();
-            else if (m_eCurState == STATE::knock_end_hit)
-                Reset_Frame();
-            else if (m_eCurState == STATE::knock_end_loop)
-                m_eCurState = STATE::knock_end_hit;
+            if (!m_bEvade)
+            {
+                if (m_eCurState == STATE::hit)
+                    Reset_Frame();
+                else if (m_eCurState == STATE::knock_end_hit)
+                    Reset_Frame();
+                else if (m_eCurState == STATE::knock_end_loop)
+                    m_eCurState = STATE::knock_end_hit;
+                else
+                    m_eCurState = STATE::hit;
+            }
             else
-                m_eCurState = STATE::hit;
-
-            if (rand() % 3 == 0)
+            {
                 m_eCurState = STATE::skill_91100;
+            }
         }
     }
     else if (skillname == KNOCKBACK_ATTACK || skillname == KNOCKBACK_SKILL)
     {
         if (!m_bSuperArmor)
         {
-            if (m_eCurState == STATE::knock_end_hit)
-                Reset_Frame();
-            else if (m_eCurState == STATE::knock_end_loop)
-                m_eCurState = STATE::knock_end_hit;
+            if (!m_bEvade)
+            {
+                if (m_eCurState == STATE::knock_end_hit)
+                    Reset_Frame();
+                else if (m_eCurState == STATE::knock_end_loop)
+                    m_eCurState = STATE::knock_end_hit;
+                else
+                    m_eCurState = STATE::knock_start;
+            }
             else
-                m_eCurState = STATE::knock_start;
-
-
-            if (rand() % 3 == 0)
+            {
                 m_eCurState = STATE::skill_91100;
+            }
         }
     }
     else if (skillname == KNOCKDOWN_ATTACK || skillname == KNOCKDOWN_SKILL)
     {
         if (!m_bSuperArmor)
         {
-            if (m_eCurState == STATE::knock_end_hit)
-                Reset_Frame();
-            else if (m_eCurState == STATE::knock_end_loop)
-                m_eCurState = STATE::knock_end_hit;
+            if (!m_bEvade)
+            {
+                if (m_eCurState == STATE::knock_end_hit)
+                    Reset_Frame();
+                else if (m_eCurState == STATE::knock_end_loop)
+                    m_eCurState = STATE::knock_end_hit;
+                else
+                    m_eCurState = STATE::knockdown_start;
+            }
             else
-                m_eCurState = STATE::knockdown_start;
-
-
-            if (rand() % 3 == 0)
+            {
                 m_eCurState = STATE::skill_91100;
+            }
         }
     }
     else if (skillname == AIRBORNE_ATTACK || skillname == AIRBORNE_SKILL)
     {
         if (!m_bSuperArmor)
         {
-            if (m_eCurState == STATE::knock_end_hit)
-                Reset_Frame();
-            else if (m_eCurState == STATE::knock_end_loop)
-                m_eCurState = STATE::knock_end_hit;
+            if (!m_bEvade)
+            {
+                if (m_eCurState == STATE::knock_end_hit)
+                    Reset_Frame();
+                else if (m_eCurState == STATE::knock_end_loop)
+                    m_eCurState = STATE::knock_end_hit;
+                else
+                    m_eCurState = STATE::airborne_start;
+            }
             else
-                m_eCurState = STATE::airborne_start;
-
-            if (rand() % 3 == 0)
+            {
                 m_eCurState = STATE::skill_91100;
+            }
         }
-    }
-}
-
-void Boss_Dellons_FSM::AttackCollider_On(const wstring& skillname)
-{
-    if (!m_pAttackCollider.expired())
-    {
-        m_pAttackCollider.lock()->Get_Collider()->Set_Activate(true);
-        m_pAttackCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_SkillName(skillname);
-    }
-}
-
-void Boss_Dellons_FSM::AttackCollider_Off()
-{
-    if (!m_pAttackCollider.expired())
-    {
-        m_pAttackCollider.lock()->Get_Collider()->Set_Activate(false);
-        m_pAttackCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_SkillName(L"");
     }
 }
 
@@ -483,22 +431,13 @@ void Boss_Dellons_FSM::Set_State(_uint iIndex)
 }
 
 void Boss_Dellons_FSM::n_idle()
-{
+{   
+    //Change
     if (Target_In_DetectRange())
         m_bDetected = true;
 
     if (m_bDetected)
-    {
-        //Add_BossHp UI
-        if (!m_pOwner.expired())
-        {
-            auto pScript = make_shared<UIBossHpBar>(BOSS::DELLONS);
-            m_pOwner.lock()->Add_Component(pScript);
-            pScript->Init();
-        }
-
-        m_eCurState = STATE::b_idle;
-    }
+        m_eCurState = STATE::talk_01;
 }
 
 void Boss_Dellons_FSM::n_idle_Init()
@@ -518,44 +457,49 @@ void Boss_Dellons_FSM::n_idle_Init()
 
 void Boss_Dellons_FSM::talk_01()
 {
+    if (!m_pCamera.expired())
+    {
+        _float4 m_vCamPos = m_vCenterBonePos + _float4{ 0.f,1.f,0.f,0.f };
+        _float4 vDir = m_pCamera.lock()->Get_Transform()->Get_State(Transform_State::POS) - m_vCamPos;
+
+        vDir.Normalize();
+
+        m_pCamera.lock()->Get_Script<MainCameraScript>()->Set_FollowSpeed(1.f);
+        m_pCamera.lock()->Get_Script<MainCameraScript>()->Set_FixedLookTarget(m_vCamPos.xyz());
+        m_pCamera.lock()->Get_Script<MainCameraScript>()->Fix_Camera(0.2f, vDir.xyz(), 4.f);
+    }
+
+    Calculate_CamBoneMatrix();
+
+    //Dialogue END
+    if (m_pOwner.lock()->Get_Script<UiBossDialog>())
+    {
+        if (m_pOwner.lock()->Get_Script<UiBossDialog>()->Is_Finish() == true)
+        {
+            CUR_SCENE->Set_AttackCall(true);
+            m_eCurState = STATE::b_idle;
+            g_bCutScene = false;
+        }
+    }
 }
 
 void Boss_Dellons_FSM::talk_01_Init()
 {
     shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 
-    animator->Set_NextTweenAnim(L"talk_01", 0.1f, true, 1.f);
+    animator->Set_NextTweenAnim(L"talk_01", 0.2f ,true, 0.5f);
 
     AttackCollider_Off();
 
     m_bInvincible = true;
     m_bSuperArmor = false;
-}
 
-void Boss_Dellons_FSM::Intro()
-{
-    
-    if (m_iPreFrame != m_iCurFrame)
-    {
-        Summon_Wraith();
+    g_bCutScene = true;
 
-        Set_WraithState((_uint)Boss_DellonsWraith_FSM::STATE::FX_Mn_Dellons_skill_500200);
-    }
-    
-    if (Is_AnimFinished())
-        m_eCurState = STATE::n_idle;
-}
+    if (m_pOwner.lock()->Get_Script<UiBossDialog>())
+        m_pOwner.lock()->Get_Script<UiBossDialog>()->Create_Dialog(BOSS::DELLONS);
 
-void Boss_Dellons_FSM::Intro_Init()
-{
-    shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
-
-    animator->Set_NextTweenAnim(L"skill_902100", 0.1f, false, 1.f);
-
-    AttackCollider_Off();
-
-    m_bInvincible = true;
-    m_bSuperArmor = false;
+    Calculate_CamBoneMatrix();
 }
 
 void Boss_Dellons_FSM::b_idle()
@@ -581,6 +525,8 @@ void Boss_Dellons_FSM::b_idle()
             else
                 m_eCurState = STATE::b_run_start;
         }
+
+        Dead_Setting();
     }
 }
 
@@ -599,6 +545,19 @@ void Boss_Dellons_FSM::b_idle_Init()
 
     m_bInvincible = false;
     m_bSuperArmor = false;
+
+    if (!m_bCreateUI)
+    {
+        //Add_BossHp UI
+        if (!m_pOwner.expired())
+        {
+            auto pScript = make_shared<UIBossHpBar>(BOSS::DELLONS);
+            m_pOwner.lock()->Add_Component(pScript);
+            pScript->Init();
+        }
+
+        m_bCreateUI = true;
+    }
 }
 
 void Boss_Dellons_FSM::b_run_start()
@@ -654,7 +613,7 @@ void Boss_Dellons_FSM::b_run()
 
         if (m_bSprint)
         {
-            if (Get_CurFrame() == 1)
+            if (m_iCurFrame == 1)
             {
                 m_bSprint = false;
                 m_eCurState = STATE::b_sprint;
@@ -753,10 +712,47 @@ void Boss_Dellons_FSM::b_walk_Init()
 
 void Boss_Dellons_FSM::die()
 {
+    if (Is_AnimFinished())
+    {
+        auto script = make_shared<ObjectDissolve>(1.f);
+        Get_Owner()->Add_Component(script);
+        script->Init();
+
+        if (!m_pAttackCollider.expired())
+            EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+
+        if (!m_pWeapon.expired())
+        {
+            auto script = make_shared<ObjectDissolve>(1.f);
+            m_pWeapon.lock()->Add_Component(script);
+            script->Init();
+        }
+
+        if (!m_pDellonsWraith.expired())
+            EVENTMGR.Delete_Object(m_pDellonsWraith.lock());
+    }
 }
 
 void Boss_Dellons_FSM::die_Init()
 {
+    shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
+
+    animator->Set_NextTweenAnim(L"die", 0.2f, false, 1.f);
+
+    m_bInvincible = true;
+    m_bSuperArmor = true;
+
+    if (!m_pDellonsWraith.expired())
+    {
+        if (m_pDellonsWraith.lock()->Get_FSM())
+            m_pDellonsWraith.lock()->Get_FSM()->Remove_Object();
+    }
+
+    if (!m_pOwner.expired())
+    {
+        if (m_pOwner.lock()->Get_Script<UIBossHpBar>())
+            m_pOwner.lock()->Get_Script<UIBossHpBar>()->Remove_HpBar();
+    }
 }
 
 void Boss_Dellons_FSM::airborne_start()
@@ -777,12 +773,49 @@ void Boss_Dellons_FSM::airborne_start_Init()
 
     m_bInvincible = false;
     m_bSuperArmor = true;
+
+    Get_CharacterController()->Add_Velocity(6.f);
 }
 
 void Boss_Dellons_FSM::airborne_end()
 {
     if (Is_AnimFinished())
-        m_eCurState = STATE::airborne_up;
+    {
+        if (!m_bIsDead)
+            m_eCurState = STATE::airborne_up;
+        else
+        {
+            m_bInvincible = true;
+
+            Get_Owner()->Get_Animator()->Set_AnimState(true);
+
+            auto script = make_shared<ObjectDissolve>(1.f);
+            Get_Owner()->Add_Component(script);
+            script->Init();
+
+            if (!m_pAttackCollider.expired())
+                EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+
+            if (!m_pWeapon.expired())
+            {
+                auto script = make_shared<ObjectDissolve>(1.f);
+                m_pWeapon.lock()->Add_Component(script);
+                script->Init();
+            }
+
+            if (!m_pDellonsWraith.expired())
+            {
+                if (m_pDellonsWraith.lock()->Get_FSM())
+                    m_pDellonsWraith.lock()->Get_FSM()->Remove_Object();
+            }
+
+            if (!m_pOwner.expired())
+            {
+                if (m_pOwner.lock()->Get_Script<UIBossHpBar>())
+                    m_pOwner.lock()->Get_Script<UIBossHpBar>()->Remove_HpBar();
+            }
+        }
+    }
 }
 
 void Boss_Dellons_FSM::airborne_end_Init()
@@ -817,6 +850,8 @@ void Boss_Dellons_FSM::hit()
 
     if (Is_AnimFinished())
         m_eCurState = STATE::b_idle;
+
+    Dead_Setting();
 }
 
 void Boss_Dellons_FSM::hit_Init()
@@ -857,7 +892,7 @@ void Boss_Dellons_FSM::knock_start_Init()
 
 void Boss_Dellons_FSM::knock_end()
 {
-    if (Get_CurFrame() < 16)
+    if (m_iCurFrame < 16)
         Get_Transform()->Go_Backward();
 
     if (Is_AnimFinished())
@@ -880,8 +915,41 @@ void Boss_Dellons_FSM::knock_end_loop()
 {
     m_tKnockDownEndCoolTime.fAccTime += fDT;
 
-    if (Get_CurFrame() > Get_FinalFrame() / 2)
+    if (m_iCurFrame > Get_FinalFrame() / 2)
         m_eCurState = STATE::knock_up;
+
+    if (m_bIsDead)
+    {
+        m_bInvincible = true;
+
+        Get_Owner()->Get_Animator()->Set_AnimState(true);
+
+        auto script = make_shared<ObjectDissolve>(1.f);
+        Get_Owner()->Add_Component(script);
+        script->Init();
+
+        if (!m_pAttackCollider.expired())
+            EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+
+        if (!m_pWeapon.expired())
+        {
+            auto script = make_shared<ObjectDissolve>(1.f);
+            m_pWeapon.lock()->Add_Component(script);
+            script->Init();
+        }
+
+        if (!m_pDellonsWraith.expired())
+        {
+            if (m_pDellonsWraith.lock()->Get_FSM())
+                m_pDellonsWraith.lock()->Get_FSM()->Remove_Object();
+        }
+
+        if (!m_pOwner.expired())
+        {
+            if (m_pOwner.lock()->Get_Script<UIBossHpBar>())
+                m_pOwner.lock()->Get_Script<UIBossHpBar>()->Remove_HpBar();
+        }
+    }
 }
 
 void Boss_Dellons_FSM::knock_end_loop_Init()
@@ -963,11 +1031,46 @@ void Boss_Dellons_FSM::knockdown_start_Init()
 
 void Boss_Dellons_FSM::knockdown_end()
 {
-    if (Get_CurFrame() < 16)
+    if (m_iCurFrame < 16)
         Get_Transform()->Go_Backward();
 
     if (Is_AnimFinished())
-        m_eCurState = STATE::knock_up;
+    {
+        if (!m_bIsDead)
+            m_eCurState = STATE::knock_up;
+        else
+        {
+            m_bInvincible = true;
+
+            Get_Owner()->Get_Animator()->Set_AnimState(true);
+
+            auto script = make_shared<ObjectDissolve>(1.f);
+            Get_Owner()->Add_Component(script);
+            script->Init();
+
+            if (!m_pAttackCollider.expired())
+                EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+
+            if (!m_pWeapon.expired())
+            {
+                auto script = make_shared<ObjectDissolve>(1.f);
+                m_pWeapon.lock()->Add_Component(script);
+                script->Init();
+            }
+
+            if (!m_pDellonsWraith.expired())
+            {
+                if (m_pDellonsWraith.lock()->Get_FSM())
+                    m_pDellonsWraith.lock()->Get_FSM()->Remove_Object();
+            }
+
+            if (!m_pOwner.expired())
+            {
+                if (m_pOwner.lock()->Get_Script<UIBossHpBar>())
+                    m_pOwner.lock()->Get_Script<UIBossHpBar>()->Remove_HpBar();
+            }
+        }
+    }
 }
 
 void Boss_Dellons_FSM::knockdown_end_Init()
@@ -1003,12 +1106,12 @@ void Boss_Dellons_FSM::skill_1100()
     if (m_vTurnVector != _float3(0.f))
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
-    if (Get_CurFrame() == 9)
-        AttackCollider_On(NORMAL_ATTACK);
-    else if (Get_CurFrame() == 19)
+    if (m_iCurFrame == 9)
+        AttackCollider_On(NORMAL_ATTACK, 10.f);
+    else if (m_iCurFrame == 19)
         AttackCollider_Off();
 
-    if (Get_CurFrame() == 25)
+    if (m_iCurFrame == 25)
         m_eCurState = STATE::skill_1200;
 }
 
@@ -1016,7 +1119,7 @@ void Boss_Dellons_FSM::skill_1100_Init()
 {
     shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 
-    animator->Set_NextTweenAnim(L"skill_1100", 0.15f, false, 1.5f);
+    animator->Set_NextTweenAnim(L"skill_1100", 0.15f, false, m_fNormalAttack_AnimationSpeed);
 
     m_vTurnVector = Calculate_TargetTurnVector();
 
@@ -1032,12 +1135,12 @@ void Boss_Dellons_FSM::skill_1200()
     if (m_vTurnVector != _float3(0.f))
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
-    if (Get_CurFrame() == 8)
-        AttackCollider_On(NORMAL_ATTACK);
-    else if (Get_CurFrame() == 18)
+    if (m_iCurFrame == 8)
+        AttackCollider_On(NORMAL_ATTACK, 10.f);
+    else if (m_iCurFrame == 18)
         AttackCollider_Off();
   
-    if (Get_CurFrame() == 21)
+    if (m_iCurFrame == 21)
         m_eCurState = STATE::skill_1300;
 }
 
@@ -1045,7 +1148,7 @@ void Boss_Dellons_FSM::skill_1200_Init()
 {
     shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 
-    animator->Set_NextTweenAnim(L"skill_1200", 0.15f, false, 1.5f);
+    animator->Set_NextTweenAnim(L"skill_1200", 0.15f, false, m_fNormalAttack_AnimationSpeed);
 
     m_vTurnVector = Calculate_TargetTurnVector();
 
@@ -1063,12 +1166,12 @@ void Boss_Dellons_FSM::skill_1300()
     if (m_vTurnVector != _float3(0.f))
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
-    if (Get_CurFrame() == 8)
-        AttackCollider_On(NORMAL_ATTACK);
-    else if (Get_CurFrame() == 33)
+    if (m_iCurFrame == 8)
+        AttackCollider_On(NORMAL_ATTACK, 10.f);
+    else if (m_iCurFrame == 33)
         AttackCollider_Off();
 
-    if (Get_CurFrame() == 19)
+    if (m_iCurFrame == 19)
         m_eCurState = STATE::skill_1400;
 }
 
@@ -1076,7 +1179,7 @@ void Boss_Dellons_FSM::skill_1300_Init()
 {
     shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 
-    animator->Set_NextTweenAnim(L"skill_1300", 0.15f, false, 1.5f);
+    animator->Set_NextTweenAnim(L"skill_1300", 0.15f, false, m_fNormalAttack_AnimationSpeed);
 
     m_vTurnVector = Calculate_TargetTurnVector();
 
@@ -1094,13 +1197,13 @@ void Boss_Dellons_FSM::skill_1400()
     if (m_vTurnVector != _float3(0.f))
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
-    if (Get_CurFrame() == 8)
-        AttackCollider_On(NORMAL_ATTACK);
-    else if (Get_CurFrame() == 14)
+    if (m_iCurFrame == 8)
+        AttackCollider_On(NORMAL_ATTACK, 10.f);
+    else if (m_iCurFrame == 14)
         AttackCollider_Off();
-    else if (Get_CurFrame() == 16)
-        AttackCollider_On(KNOCKBACK_ATTACK);
-    else if (Get_CurFrame() == 24)
+    else if (m_iCurFrame == 16)
+        AttackCollider_On(KNOCKBACK_ATTACK, 10.f);
+    else if (m_iCurFrame == 24)
         AttackCollider_Off();
 
     if (Is_AnimFinished())
@@ -1111,7 +1214,7 @@ void Boss_Dellons_FSM::skill_1400_Init()
 {
     shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 
-    animator->Set_NextTweenAnim(L"skill_1400", 0.15f, false, 1.5f);
+    animator->Set_NextTweenAnim(L"skill_1400", 0.15f, false, m_fNormalAttack_AnimationSpeed);
 
     m_vTurnVector = Calculate_TargetTurnVector();
 
@@ -1146,6 +1249,7 @@ void Boss_Dellons_FSM::skill_91100_Init()
     
     m_bInvincible = true;
     m_bSuperArmor = false;
+    m_bEvade = false;
 }
 
 void Boss_Dellons_FSM::skill_93100()
@@ -1171,7 +1275,7 @@ void Boss_Dellons_FSM::skill_100100()
     if (m_vTurnVector != _float3(0.f))
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
-    if (Get_CurFrame() == 12)
+    if (m_iCurFrame == 12)
     {
         if (m_iPreFrame != m_iCurFrame)
         {
@@ -1185,19 +1289,21 @@ void Boss_Dellons_FSM::skill_100100()
                 Get_Transform()->Get_State(Transform_State::LOOK) * 2.f +
                 _float3::Up;
 
-            Create_ForwardMovingSkillCollider(vSkillPos, 1.5f, desc, KNOCKBACK_ATTACK);
+            Create_ForwardMovingSkillCollider(Monster_Skill, L"Boss_Dellons_SkillCollider", vSkillPos, 1.5f, desc, KNOCKBACK_ATTACK, 10.f);
         }
     }
 
-    if (Get_CurFrame() == 27)
+    if (m_iCurFrame == 27)
         m_eCurState = STATE::skill_100200;
+
+    Dead_Setting();
 }
 
 void Boss_Dellons_FSM::skill_100100_Init()
 {
     shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 
-    animator->Set_NextTweenAnim(L"skill_100100", 0.15f, false, 1.f);
+    animator->Set_NextTweenAnim(L"skill_100100", 0.15f, false, m_fSkillAttack_AnimationSpeed);
 
     m_vTurnVector = Calculate_TargetTurnVector();
 
@@ -1207,7 +1313,7 @@ void Boss_Dellons_FSM::skill_100100_Init()
     AttackCollider_Off();
 
     m_bInvincible = false;
-    m_bSuperArmor = true;
+    m_bSuperArmor = false;
 }
 
 void Boss_Dellons_FSM::skill_100200()
@@ -1215,7 +1321,7 @@ void Boss_Dellons_FSM::skill_100200()
     if (m_vTurnVector != _float3(0.f))
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
-    if (Get_CurFrame() == 15)
+    if (m_iCurFrame == 15)
     {
         if (m_iPreFrame != m_iCurFrame)
         {
@@ -1229,19 +1335,21 @@ void Boss_Dellons_FSM::skill_100200()
                 Get_Transform()->Get_State(Transform_State::LOOK) * 2.f +
                 _float3::Up;
 
-            Create_ForwardMovingSkillCollider(vSkillPos, 1.5f, desc, AIRBORNE_ATTACK);
+            Create_ForwardMovingSkillCollider(Monster_Skill, L"Boss_Dellons_SkillCollider", vSkillPos, 1.5f, desc, AIRBORNE_ATTACK, 10.f);
         }
     }
  
     if (Is_AnimFinished())
         m_eCurState = STATE::b_idle;
+
+    Dead_Setting();
 }
 
 void Boss_Dellons_FSM::skill_100200_Init()
 {
     shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 
-    animator->Set_NextTweenAnim(L"skill_100200", 0.15f, false, 1.f);
+    animator->Set_NextTweenAnim(L"skill_100200", 0.15f, false, m_fSkillAttack_AnimationSpeed);
 
     m_vTurnVector = Calculate_TargetTurnVector();
 
@@ -1251,7 +1359,7 @@ void Boss_Dellons_FSM::skill_100200_Init()
     AttackCollider_Off();
 
     m_bInvincible = false;
-    m_bSuperArmor = true;
+    m_bSuperArmor = false;
 }
 
 void Boss_Dellons_FSM::skill_200100()
@@ -1259,20 +1367,22 @@ void Boss_Dellons_FSM::skill_200100()
     if (m_vTurnVector != _float3(0.f))
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
-    if (Get_CurFrame() == 7)
-        AttackCollider_On(KNOCKBACK_ATTACK);
-    else if (Get_CurFrame() == 12)
+    if (m_iCurFrame == 7)
+        AttackCollider_On(KNOCKBACK_ATTACK, 10.f);
+    else if (m_iCurFrame == 12)
         AttackCollider_Off();
 
-    if (Get_CurFrame() == 21)
+    if (m_iCurFrame == 21)
         m_eCurState = STATE::skill_200200;
+
+    Dead_Setting();
 }
 
 void Boss_Dellons_FSM::skill_200100_Init()
 {
     shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 
-    animator->Set_NextTweenAnim(L"skill_200100", 0.15f, false, 1.f);
+    animator->Set_NextTweenAnim(L"skill_200100", 0.15f, false, m_fSkillAttack_AnimationSpeed);
 
     m_vTurnVector = Calculate_TargetTurnVector();
 
@@ -1282,7 +1392,7 @@ void Boss_Dellons_FSM::skill_200100_Init()
     AttackCollider_Off();
 
     m_bInvincible = false;
-    m_bSuperArmor = true;
+    m_bSuperArmor = false;
 }
 
 void Boss_Dellons_FSM::skill_200200()
@@ -1290,7 +1400,7 @@ void Boss_Dellons_FSM::skill_200200()
     if (m_vTurnVector != _float3(0.f))
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
-    if (Get_CurFrame() == 7)
+    if (m_iCurFrame == 7)
     {
         if (m_iPreFrame != m_iCurFrame)
         {
@@ -1301,7 +1411,7 @@ void Boss_Dellons_FSM::skill_200200()
             desc.fLimitDistance = 0.f;
 
             _float4 vSkillPos = Get_Transform()->Get_State(Transform_State::POS) + Get_Transform()->Get_State(Transform_State::LOOK) * 3.f + _float3::Up;
-            Create_ForwardMovingSkillCollider(vSkillPos, 2.f, desc, KNOCKBACK_SKILL);
+            Create_ForwardMovingSkillCollider(Monster_Skill, L"Boss_Dellons_SkillCollider", vSkillPos, 2.f, desc, KNOCKBACK_SKILL, 10.f);
         }
     }
 
@@ -1310,13 +1420,15 @@ void Boss_Dellons_FSM::skill_200200()
         m_eCurState = STATE::b_idle;
     }
 
+
+    Dead_Setting();
 }
 
 void Boss_Dellons_FSM::skill_200200_Init()
 {
     shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 
-    animator->Set_NextTweenAnim(L"skill_200200", 0.15f, false, 1.f);
+    animator->Set_NextTweenAnim(L"skill_200200", 0.15f, false, m_fSkillAttack_AnimationSpeed);
 
     m_vTurnVector = Calculate_TargetTurnVector();
 
@@ -1326,7 +1438,7 @@ void Boss_Dellons_FSM::skill_200200_Init()
     AttackCollider_Off();
 
     m_bInvincible = false;
-    m_bSuperArmor = true;
+    m_bSuperArmor = false;
 }
 
 void Boss_Dellons_FSM::skill_300100()
@@ -1334,26 +1446,7 @@ void Boss_Dellons_FSM::skill_300100()
     if (m_vTurnVector != _float3(0.f))
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
-    /*if (Get_CurFrame() >= 10)
-    {
-        if (!m_pCamera.expired())
-        {
-            _float4 vDestinationPos = (Get_Transform()->Get_State(Transform_State::POS)) +
-                m_vSkillCamRight +
-                (Get_Transform()->Get_State(Transform_State::LOOK) * -3.f)
-                + _float3::Up * 6.f;
-            _float4 vDir = vDestinationPos - m_vSkillCamBonePos;
-
-            vDir.Normalize();
-
-            m_pCamera.lock()->Get_Script<MainCameraScript>()->Set_FollowSpeed(1.5f);
-            m_pCamera.lock()->Get_Script<MainCameraScript>()->Set_FixedLookTarget(m_vSkillCamBonePos.xyz());
-            m_pCamera.lock()->Get_Script<MainCameraScript>()->Fix_Camera(0.3f, vDir.xyz(), 13.f);
-        }
-    }*/
-
-
-    if (Get_CurFrame() == 10)
+    if (m_iCurFrame == 10)
     {
         if (m_iPreFrame != m_iCurFrame)
         {
@@ -1364,16 +1457,16 @@ void Boss_Dellons_FSM::skill_300100()
     }
 
     if (Is_AnimFinished())
-    {
         m_eCurState = STATE::b_idle;
-    }
+    
+    Dead_Setting();
 }
 
 void Boss_Dellons_FSM::skill_300100_Init()
 {
     shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 
-    animator->Set_NextTweenAnim(L"skill_300100", 0.15f, false, 1.f);
+    animator->Set_NextTweenAnim(L"skill_300100", 0.15f, false, m_fSkillAttack_AnimationSpeed);
 
     m_vTurnVector = Calculate_TargetTurnVector();
 
@@ -1382,7 +1475,7 @@ void Boss_Dellons_FSM::skill_300100_Init()
 
     AttackCollider_Off();
 
-    m_bInvincible = true;
+    m_bInvincible = false;
     m_bSuperArmor = true;
 
     Calculate_SkillCamRight();
@@ -1393,25 +1486,7 @@ void Boss_Dellons_FSM::skill_400100()
     if (m_vTurnVector != _float3(0.f))
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
-    /*if (Get_CurFrame() >= 13)
-    {
-        if (!m_pCamera.expired())
-        {
-            _float4 vDestinationPos = (Get_Transform()->Get_State(Transform_State::POS)) +
-                m_vSkillCamRight +
-                (Get_Transform()->Get_State(Transform_State::LOOK) * -3.f)
-                + _float3::Up * 6.f;
-            _float4 vDir = vDestinationPos - m_vSkillCamBonePos;
-
-            vDir.Normalize();
-
-            m_pCamera.lock()->Get_Script<MainCameraScript>()->Set_FollowSpeed(1.5f);
-            m_pCamera.lock()->Get_Script<MainCameraScript>()->Set_FixedLookTarget(m_vSkillCamBonePos.xyz());
-            m_pCamera.lock()->Get_Script<MainCameraScript>()->Fix_Camera(0.3f, vDir.xyz(), 4.5f);
-        }
-    }*/
-
-    if (Get_CurFrame() == 20)
+    if (m_iCurFrame == 20)
     {
         if (m_iPreFrame != m_iCurFrame)
         {
@@ -1420,12 +1495,12 @@ void Boss_Dellons_FSM::skill_400100()
             Set_WraithState((_uint)Boss_DellonsWraith_FSM::STATE::FX_Mn_Dellons_skill_5100);
         }
     }
-    else if (Get_CurFrame() == 33 ||
-             Get_CurFrame() == 40 ||
-             Get_CurFrame() == 47 ||
-             Get_CurFrame() == 60 ||
-             Get_CurFrame() == 67 ||
-             Get_CurFrame() == 72)
+    else if (m_iCurFrame == 33 ||
+             m_iCurFrame == 40 ||
+             m_iCurFrame == 47 ||
+             m_iCurFrame == 60 ||
+             m_iCurFrame == 67 ||
+             m_iCurFrame == 72)
     {
         if (m_iPreFrame != m_iCurFrame)
         {
@@ -1436,28 +1511,25 @@ void Boss_Dellons_FSM::skill_400100()
             desc.fLimitDistance = 3.5f;
 
             _float4 vSkillPos = Get_Transform()->Get_State(Transform_State::POS) + Get_Transform()->Get_State(Transform_State::LOOK) * 2.f + _float3::Up;
-            Create_ForwardMovingSkillCollider(vSkillPos, 1.f, desc, NORMAL_ATTACK);
+            Create_ForwardMovingSkillCollider(Monster_Skill, L"Boss_Dellons_SkillCollider", vSkillPos, 1.f, desc, NORMAL_ATTACK, 10.f);
         }
     }
-    else if (Get_CurFrame() == 102)
+    else if (Init_CurFrame(99))
     {
-        if (m_iPreFrame != m_iCurFrame)
-        {
-            FORWARDMOVINGSKILLDESC desc;
-            desc.vSkillDir = Get_Transform()->Get_State(Transform_State::LOOK);
-            desc.fMoveSpeed = 20.f;
-            desc.fLifeTime = 1.f;
-            desc.fLimitDistance = 2.f;
+        FORWARDMOVINGSKILLDESC desc;
+        desc.vSkillDir = Get_Transform()->Get_State(Transform_State::LOOK);
+        desc.fMoveSpeed = 20.f;
+        desc.fLifeTime = 1.f;
+        desc.fLimitDistance = 5.f;
 
-            _float4 vSkillPos = Get_Transform()->Get_State(Transform_State::POS) + Get_Transform()->Get_State(Transform_State::LOOK) * 2.f + _float3::Up;
-            Create_ForwardMovingSkillCollider(vSkillPos, 1.f, desc, KNOCKDOWN_SKILL);
-        }
+        _float4 vSkillPos = Get_Transform()->Get_State(Transform_State::POS) + Get_Transform()->Get_State(Transform_State::LOOK) * -0.5f + _float3::Up;
+        Create_ForwardMovingSkillCollider(Monster_Skill, L"Boss_Dellons_SkillCollider", vSkillPos, 2.f, desc, KNOCKDOWN_SKILL, 10.f);
     }
 
-    if (Get_CurFrame() == 120)
-    {
+    if (m_iCurFrame == 120)
         m_eCurState = STATE::b_idle;
-    }
+    
+    Dead_Setting();
 }
 
 void Boss_Dellons_FSM::skill_400100_Init()
@@ -1473,7 +1545,7 @@ void Boss_Dellons_FSM::skill_400100_Init()
 
     AttackCollider_Off();
 
-    m_bInvincible = true;
+    m_bInvincible = false;
     m_bSuperArmor = true;
 
     Calculate_SkillCamRight();
@@ -1485,7 +1557,7 @@ void Boss_Dellons_FSM::skill_501100()
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
 
-    if (Get_CurFrame() == 4)
+    if (m_iCurFrame == 4)
     {
         //Summon Wraith
         if (m_iPreFrame != m_iCurFrame)
@@ -1497,17 +1569,16 @@ void Boss_Dellons_FSM::skill_501100()
     }
 
     if (Is_AnimFinished())
-    {
         m_eCurState = STATE::b_idle;
-    }
-
+    
+    Dead_Setting();
 }
 
 void Boss_Dellons_FSM::skill_501100_Init()
 {
     shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 
-    animator->Set_NextTweenAnim(L"skill_501100", 0.15f, false, 1.f);
+    animator->Set_NextTweenAnim(L"skill_501100", 0.15f, false, m_fSkillAttack_AnimationSpeed);
 
     m_vTurnVector = Calculate_TargetTurnVector();
 
@@ -1517,83 +1588,8 @@ void Boss_Dellons_FSM::skill_501100_Init()
     AttackCollider_Off();
 
     m_bInvincible = false;
-    m_bSuperArmor = true;
+    m_bSuperArmor = false;
 }
-
-void Boss_Dellons_FSM::skill_901000()
-{
-    if (Is_AnimFinished())
-        m_eCurState = STATE::b_idle;
-    
-}
-
-void Boss_Dellons_FSM::skill_901000_Init()
-{
-    shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
-
-    animator->Set_NextTweenAnim(L"skill_901100", 0.15f, false, 1.f);
-    
-    AttackCollider_Off();
-
-    m_tAttackCoolTime.fAccTime = 0.f;
-    m_bSetPattern = false;
-
-    m_bInvincible = false;
-    m_bSuperArmor = true;
-}
-
-void Boss_Dellons_FSM::skill_901100()
-{
-    if (Is_AnimFinished())
-        m_eCurState = STATE::b_idle;
-
-}
-
-void Boss_Dellons_FSM::skill_901100_Init()
-{
-    m_tAttackCoolTime.fAccTime = 0.f;
-    m_bSetPattern = false;
-}
-
-void Boss_Dellons_FSM::skill_902100()
-{
-    if (Is_AnimFinished())
-        m_eCurState = STATE::b_idle;
-
-}
-
-void Boss_Dellons_FSM::skill_902100_Init()
-{
-    m_tAttackCoolTime.fAccTime = 0.f;
-    m_bSetPattern = false;
-}
-
-void Boss_Dellons_FSM::skill_903100()
-{
-    if (Is_AnimFinished())
-        m_eCurState = STATE::b_idle;
-
-}
-
-void Boss_Dellons_FSM::skill_903100_Init()
-{
-    m_tAttackCoolTime.fAccTime = 0.f;
-    m_bSetPattern = false;
-}
-
-void Boss_Dellons_FSM::skill_904100()
-{
-    if (Is_AnimFinished())
-        m_eCurState = STATE::b_idle;
-
-}
-
-void Boss_Dellons_FSM::skill_904100_Init()
-{
-    m_tAttackCoolTime.fAccTime = 0.f;
-    m_bSetPattern = false;
-}
-
 
 void Boss_Dellons_FSM::Battle_Start()
 {
@@ -1606,31 +1602,6 @@ void Boss_Dellons_FSM::Battle_Start()
     }
 }
 
-void Boss_Dellons_FSM::Create_ForwardMovingSkillCollider(const _float4& vPos, _float fSkillRange, FORWARDMOVINGSKILLDESC desc, const wstring& SkillType)
-{
-    shared_ptr<GameObject> SkillCollider = make_shared<GameObject>();
-
-    m_pSkillCollider = SkillCollider;
-
-    m_pSkillCollider.lock()->GetOrAddTransform();
-    m_pSkillCollider.lock()->Get_Transform()->Set_State(Transform_State::POS, vPos);
-
-    auto pSphereCollider = make_shared<SphereCollider>(fSkillRange);
-    pSphereCollider->Set_CenterPos(_float3{ vPos.x,vPos.y, vPos.z });
-    m_pSkillCollider.lock()->Add_Component(pSphereCollider);
-
-    m_pSkillCollider.lock()->Get_Collider()->Set_CollisionGroup(Monster_Skill);
-
-    m_pSkillCollider.lock()->Add_Component(make_shared<AttackColliderInfoScript>());
-    m_pSkillCollider.lock()->Get_Collider()->Set_Activate(true);
-    m_pSkillCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_SkillName(SkillType);
-    m_pSkillCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_ColliderOwner(m_pOwner.lock());
-    m_pSkillCollider.lock()->Set_Name(L"Boss_Dellons_SkillCollider");
-    m_pSkillCollider.lock()->Add_Component(make_shared<ForwardMovingSkillScript>(desc));
-    m_pSkillCollider.lock()->Get_Script<ForwardMovingSkillScript>()->Init();
-
-    CUR_SCENE->Add_GameObject(m_pSkillCollider.lock());
-}
 
 void Boss_Dellons_FSM::Summon_Wraith()
 {
@@ -1655,7 +1626,7 @@ void Boss_Dellons_FSM::Summon_Wraith()
     ObjWraith->Get_FSM()->Init();
     ObjWraith->Set_Name(L"Boss_Dellons_Wraith");
 
-    CUR_SCENE->Add_GameObject(ObjWraith);
+    EVENTMGR.Create_Object(ObjWraith);
 
     m_pDellonsWraith = ObjWraith;
 }
@@ -1732,6 +1703,16 @@ void Boss_Dellons_FSM::Set_AttackSkill_Phase1()
     }
 
     m_bSetPattern = true;
+}
+
+void Boss_Dellons_FSM::Dead_Setting()
+{
+    if (m_bIsDead)
+    {
+        m_bInvincible = true;
+
+        m_eCurState = STATE::die;
+    }
 }
 
 

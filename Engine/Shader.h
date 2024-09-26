@@ -13,6 +13,7 @@ enum class SHADER_TYPE
 	SHADOW,
 	DISTORTION,
 	SKYBOX,
+	WATER,
 	NONE
 };
 

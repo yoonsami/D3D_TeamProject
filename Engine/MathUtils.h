@@ -97,5 +97,18 @@ struct MathUtils
 
 		return angles;
 	}
+
+	static _float evaluateQuadraticEquation(_float x, const _float3& coefficients) {
+		return coefficients.x * x * x + coefficients.y * x + coefficients.z;
+	}
+
+	static _float3 calculateQuadraticCoefficients(_float x1, _float y1, _float z1, _float x2, _float y2, _float z2) {
+		_float a = (z2 - z1) / ((x2 - x1) * (x2 - x1));
+		_float b = -2 * a * x1;
+		_float c = z1 - a * x1 * x1 - b * x1;
+
+		return { a, b, c };
+	}
+
 };
 

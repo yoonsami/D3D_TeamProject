@@ -47,7 +47,7 @@ void ParticleSystem::Final_Tick()
 	_int add = 0;
 	if (m_fSystemAge >= m_ParticleSystemDesc.m_fDuration)
 	{
-		CUR_SCENE->Remove_GameObject(Get_Owner());
+		EVENTMGR.Delete_Object(Get_Owner());
 		return;
 
 	}

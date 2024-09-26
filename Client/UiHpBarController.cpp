@@ -77,11 +77,11 @@ void UiHpBarController::Change_Hp_Ratio()
 
     m_fRatio = m_pBackHp.lock()->Get_MeshRenderer()->Get_RenderParamDesc().floatParams[0];
 
-    if (HpRatio != m_fRatio && false == m_bIsWork)
+    if (HpRatio != m_fRatio /*&& false == m_bIsWork*/)
     {
         m_bIsWork = true;
         m_fSpeed = m_fRatio - HpRatio;
-        m_fTargetRatio = HpRatio;
+        m_fTargetRatio = HpRatio - 0.01f;
     }
 }
 

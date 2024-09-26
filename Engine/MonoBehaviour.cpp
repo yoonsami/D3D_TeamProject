@@ -22,3 +22,7 @@ void MonoBehaviour::Tick()
 void MonoBehaviour::Late_Tick()
 {
 }
+
+void MonoBehaviour::Final_Tick()
+{
+}

@@ -27,15 +27,18 @@ void RenderTargetGroup::OMSetRenderTarget(_uint count, _uint index)
 
 void RenderTargetGroup::OMSetRenderTargets()
 {
-	D3D11_VIEWPORT VP = D3D11_VIEWPORT{ 0,0,m_RenderTargets[0].target->Get_Size().x,m_RenderTargets[0].target->Get_Size().y,0.f,1.f };
-	D3D11_RECT rect = D3D11_RECT{ 0,0,static_cast<LONG>(m_RenderTargets[0].target->Get_Size().x),static_cast<LONG>(m_RenderTargets[0].target->Get_Size().y) };
+	D3D11_VIEWPORT VP = D3D11_VIEWPORT{ 0,0,m_pDepthStencilTexture->Get_Size().x,m_pDepthStencilTexture->Get_Size().y,0.f,1.f };
+	D3D11_RECT rect = D3D11_RECT{ 0,0,static_cast<LONG>(m_pDepthStencilTexture->Get_Size().x),static_cast<LONG>(m_pDepthStencilTexture->Get_Size().y) };
 	CONTEXT->RSSetViewports(1, &VP);
 	CONTEXT->RSSetScissorRects(1, &rect);
 
 	vector<ID3D11RenderTargetView*> targets;
 	for (_uint i = 0; i < m_iRenderTargetCount; ++i)
 	{
-		targets.push_back(m_RenderTargets[i].target->Get_RTV().Get());
+		if (m_RenderTargets[i].target)
+			targets.push_back(m_RenderTargets[i].target->Get_RTV().Get());
+		else
+			targets.push_back(nullptr);
 	}
 	CONTEXT->OMSetRenderTargets(m_iRenderTargetCount, targets.data(), m_pDepthStencilTexture->Get_DST().Get());
 }

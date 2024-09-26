@@ -14,6 +14,8 @@ YeopoHorse_FSM::YeopoHorse_FSM()
 
 YeopoHorse_FSM::~YeopoHorse_FSM()
 {
+    if (!m_pAttackCollider.expired())
+        EVENTMGR.Delete_Object(m_pAttackCollider.lock());
 }
 
 HRESULT YeopoHorse_FSM::Init()
@@ -33,7 +35,7 @@ HRESULT YeopoHorse_FSM::Init()
 
         m_pAttackCollider = attackCollider;
 
-        CUR_SCENE->Add_GameObject(m_pAttackCollider.lock());
+        EVENTMGR.Create_Object(m_pAttackCollider.lock());
         m_pAttackCollider.lock()->Get_Collider()->Set_Activate(false);
         
         m_pAttackCollider.lock()->Add_Component(make_shared<AttackColliderInfoScript>());
@@ -55,8 +57,6 @@ HRESULT YeopoHorse_FSM::Init()
 
 void YeopoHorse_FSM::Tick()
 {
-    State_Tick();
-
     if (!m_pAttackCollider.expired())
     {
         //Head_Bone_Pos
@@ -67,6 +67,8 @@ void YeopoHorse_FSM::Tick()
         _float4 vBonePos = _float4{ matBoneMatrix.Translation().x, matBoneMatrix.Translation().y, matBoneMatrix.Translation().z , 1.f };
         m_pAttackCollider.lock()->Get_Transform()->Set_State(Transform_State::POS, vBonePos);
     }
+    State_Tick();
+
 }
 
 void YeopoHorse_FSM::State_Tick()
@@ -100,8 +102,7 @@ void YeopoHorse_FSM::State_Tick()
         break;
     }
 
-    if (!m_pGroupEffect.expired())
-        m_pGroupEffect.lock()->Get_Transform()->Set_WorldMat(Get_Transform()->Get_WorldMatrix());
+    Update_GroupEffectWorldPos(Get_Owner()->Get_Transform()->Get_WorldMatrix());
 
     if (m_iPreFrame != m_iCurFrame)
         m_iPreFrame = m_iCurFrame;
@@ -139,40 +140,9 @@ void YeopoHorse_FSM::State_Init()
     }
 }
 
-void YeopoHorse_FSM::OnCollision(shared_ptr<BaseCollider> pCollider, _float fGap)
-{
-}
-
-void YeopoHorse_FSM::OnCollisionEnter(shared_ptr<BaseCollider> pCollider, _float fGap)
-{
-
-}
-
-void YeopoHorse_FSM::OnCollisionExit(shared_ptr<BaseCollider> pCollider, _float fGap)
-{
-}
-
-void YeopoHorse_FSM::Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookTarget)
+void YeopoHorse_FSM::Get_Hit(const wstring& skillname, _float fDamage, shared_ptr<GameObject> pLookTarget)
 {
     
-}
-
-void YeopoHorse_FSM::AttackCollider_On(const wstring& skillname)
-{
-    if (!m_pAttackCollider.expired())
-    {
-        m_pAttackCollider.lock()->Get_Collider()->Set_Activate(true);
-        m_pAttackCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_SkillName(skillname);
-    }
-}
-
-void YeopoHorse_FSM::AttackCollider_Off()
-{
-    if (!m_pAttackCollider.expired())
-    {
-        m_pAttackCollider.lock()->Get_Collider()->Set_Activate(false);
-        m_pAttackCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_SkillName(L"");
-    }
 }
 
 void YeopoHorse_FSM::Set_State(_uint iIndex)
@@ -200,8 +170,8 @@ void YeopoHorse_FSM::skill_400100_fx()
 
     if (Is_AnimFinished())
     {
-        CUR_SCENE->Remove_GameObject(m_pAttackCollider.lock());
-        CUR_SCENE->Remove_GameObject(m_pOwner.lock());
+        EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+        EVENTMGR.Delete_Object(m_pOwner.lock());
     }
 }
 
@@ -214,7 +184,7 @@ void YeopoHorse_FSM::skill_400100_fx_Init()
     if (!m_pTarget.expired())
         Get_Transform()->Set_WorldMat(m_pTarget.lock()->Get_Transform()->Get_WorldMatrix());
 
-    AttackCollider_On(KNOCKBACK_ATTACK);
+    AttackCollider_On(KNOCKBACK_ATTACK, 10.f);
 }
 
 void YeopoHorse_FSM::skill_902100_fx()
@@ -260,7 +230,7 @@ void YeopoHorse_FSM::SQ_RideHorse_Run_Init()
 
     animator->Set_NextTweenAnim(L"SQ_RideHorse_Run", 0.1f, true, 1.f);
 
-    AttackCollider_On(KNOCKDOWN_ATTACK);
+    AttackCollider_On(KNOCKDOWN_ATTACK, 10.f);
 }
 
 void YeopoHorse_FSM::SQ_RideHorse_Stop()
@@ -285,8 +255,8 @@ void YeopoHorse_FSM::SQ_RideHorse_End()
 
     if (Is_AnimFinished())
     {
-        CUR_SCENE->Remove_GameObject(m_pAttackCollider.lock());
-        CUR_SCENE->Remove_GameObject(m_pOwner.lock());
+        EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+        EVENTMGR.Delete_Object(m_pOwner.lock());
     }
 }
 

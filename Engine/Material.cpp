@@ -53,9 +53,6 @@ void Material::Tick()
 		return;
 
 	m_pShader->Push_MaterialData(m_Desc);
-
-	Push_TextureMapData();
-	Push_SubMapData();
 }
 
 void Material::Push_TextureMapData()

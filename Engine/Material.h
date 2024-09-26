@@ -17,12 +17,8 @@ public:
 public:
     auto Get_Shader() { return m_pShader; }
     auto& Get_MaterialDesc() { return m_Desc; }
-
-
     void Set_Shader(shared_ptr<Shader> shader);
     void Set_Desc(const MaterialDesc& desc) { m_Desc = desc; }
-
-
     virtual shared_ptr<ResourceBase> Clone() override;
 public:
     void Tick();

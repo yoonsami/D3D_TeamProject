@@ -39,31 +39,30 @@ public:
 	template<typename T>
 	ResourceType Get_ResourceType();
 
-	shared_ptr<Texture> GetOrAddTexture(const wstring& key, const wstring& path);
+	shared_ptr<Texture>			GetOrAddTexture(const wstring& key, const wstring& path);
 	shared_ptr<GroupEffectData> GetOrAddGroupEffectData(const wstring& key, const wstring& path);
 
+	shared_ptr<Texture>			ReloadOrAddTexture(const wstring& key, const wstring& path);
 	shared_ptr<GroupEffectData> ReloadOrAddGroupEffectData(const wstring& key, const wstring& path);
 	shared_ptr<MeshEffectData>	ReloadOrAddMeshEffectData(const wstring& key, const wstring& path);
-	shared_ptr<Parts> Get_Part(const wstring& key, PARTS_INFO type);
-	map<wstring, shared_ptr<Parts>>& Get_Parts(PARTS_INFO type) { return m_PrototypeParts[(_uint)type]; }
-	auto& Get_Resources(_uint index) { return m_Resources[index]; }
+	shared_ptr<Parts>			Get_Part(const wstring& key, PARTS_INFO type);
+	map<wstring, shared_ptr<Parts>>&	Get_Parts(PARTS_INFO type) { return m_PrototypeParts[(_uint)type]; }
+	auto&						Get_Resources(_uint index) { return m_Resources[index]; }
 
-	void LoadParts();
-	void CreateDefaultMesh();
-	void CreateDefaultShader();
+	void						LoadParts();
+	void						CreateDefaultMesh();
+	void						CreateDefaultShader();
 	
-	void CreateModel(const wstring& path, _bool isStatic = true);
+	void						CreateModel(const wstring& path, _bool isStatic = true);
 
-	void CreateDefaultMaterial();
-	void CreateDefaultFont();
+	void						CreateDefaultMaterial();
+	void						CreateDefaultFont();
 
-	void CreateParticleData();
-	void CreateMeshEffectData();
-	void CreateGroupEffectData();
+	void						CreateParticleData();
+	void						CreateMeshEffectData();
+	void						CreateGroupEffectData();
 
-	void Delete_NonStaticResources();
-	
-
+	void						Delete_NonStaticResources();
 
 	shared_ptr<Texture> CreateTexture(const wstring& name, DXGI_FORMAT format, _uint width, _uint height, _uint BindFlags, _float4 clearColor);
 	shared_ptr<Texture> CreateTextureFromResource(const wstring& path, ComPtr<ID3D11Texture2D> texture);

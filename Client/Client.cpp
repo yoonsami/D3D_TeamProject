@@ -17,7 +17,8 @@ ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
-
+nanoseconds g_preSecondTick, g_secondTick, timeTick;
+nanoseconds g_preSecondRender, g_secondRender, timeRender;
 #ifdef _DEBUGTOOL
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #endif
@@ -73,11 +74,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			}
 		}
 
-
-
+		
 		pMainApp->Tick();
+		
 
 		pMainApp->Render();
+
+        EVENTMGR.Tick();
 
 		if (KEYPUSH(KEY_TYPE::ESC) && KEYPUSH(KEY_TYPE::F4))
 			break;

@@ -18,6 +18,7 @@ public:
 
     virtual HRESULT Init() override;
     virtual void Tick() override;
+    virtual shared_ptr<MonoBehaviour> Copy_Script()override { return make_shared<ForwardMovingSkillScript>(FORWARDMOVINGSKILLDESC{m_vLook,m_fMoveSpeed,m_tLifeTime.fCoolTime,m_fLimitDistance}); }
 
 private:
     _float4 m_vLook = { 0.f,0.f,0.f,0.f };

@@ -12,6 +12,9 @@
 #include "UiTargetLockOn.h"
 #include "UiMonsterHp.h"
 
+_bool g_bCutScene = false;
+
+
 MainCameraScript::MainCameraScript(shared_ptr<GameObject> pPlayer)
 {
     m_pPlayer = pPlayer;
@@ -39,7 +42,7 @@ HRESULT MainCameraScript::Init()
     return S_OK;
 }
 
-void MainCameraScript::Tick()
+void MainCameraScript::Late_Tick()
 {
     if (m_fFixedTime <= 0.f)
         Cal_OffsetDir();
@@ -71,7 +74,9 @@ void MainCameraScript::Cal_OffsetDir()
 {
     m_fFollowSpeed = 5.f;
     
-    _float2 mouseDir = INPUT.GetMouseDir();
+    _float2 mouseDir = _float2(0.f);
+    if (g_bIsCanRotation)
+        mouseDir = INPUT.GetMouseDir();
 
     //_float3 vPlayerPos = m_pPlayer.lock()->Get_Transform()->Get_State(Transform_State::POS).xyz();
 
@@ -88,8 +93,8 @@ void MainCameraScript::Cal_OffsetDir()
     _float3 vRight = Get_Transform()->Get_State(Transform_State::RIGHT).xyz();
     vRight.Normalize();
     _float3 vUp = Get_Transform()->Get_State(Transform_State::UP).xyz();
-    m_vOffset += vRight * -mouseDir.x * m_fRotationSpeed * fDT;
-    m_vOffset += vUp * mouseDir.y * m_fRotationSpeed * fDT;
+    m_vOffset += vRight * -mouseDir.x * m_fRotationSpeed * fABT;
+    m_vOffset += vUp * mouseDir.y * m_fRotationSpeed * fABT;
 
     m_vOffset.Normalize();
 }
@@ -99,20 +104,40 @@ void MainCameraScript::Restrict_Offset()
     _float3 projOffset = m_vOffset;
     projOffset.y = 0.f;
     projOffset.Normalize();
-    if ((m_vOffset.Dot(projOffset) < cosf(m_fMaxHeightRadian)))
+
+    if (m_fMaxDistance > 5.f)
     {
-        m_vOffset.y = m_vOffset.Dot(projOffset) * tanf(m_fMaxHeightRadian);
+		if ((m_vOffset.Dot(projOffset) < cosf(m_fMinHeightRadian)))
+		{
+			m_vOffset.y = m_vOffset.Dot(projOffset) * tanf(m_fMinHeightRadian);
+		}
+
+		if (m_vOffset.y < 0.f)
+			m_vOffset.y = 0.f;
+
+		m_vOffset.Normalize();
     }
-    if (m_vOffset.y < 0.f)
-        m_vOffset.y = 0.f;
-    m_vOffset.Normalize();
+    else
+	{
+		if ((m_vOffset.Dot(projOffset) < cosf(m_fMaxHeightRadian)))
+		{
+			m_vOffset.y = m_vOffset.Dot(projOffset) * tanf(m_fMaxHeightRadian);
+		}
+
+		if (m_vOffset.y < 0.f)
+			m_vOffset.y = 0.f;
+		m_vOffset.Normalize();
+	}
 }
 
 void MainCameraScript::Update_Transform()
 {
-   //auto playerController = m_pPlayer.lock()->Get_CharacterController()->Get_Actor();
-   //auto playerPos = playerController->getFootPosition();
-   //_float4 vPlayerPos = { _float(playerPos.x), _float(playerPos.y), _float(playerPos.z), 1.f };
+    if (!g_bCutScene && CUR_SCENE->Get_Name() ==  L"MirScene")
+    {
+        m_fFixedTime = 0.f;
+        m_fFixedDist = m_fMaxDistance;
+    }
+
     _float4 vPlayerPos = m_pPlayer.lock()->Get_Transform()->Get_State(Transform_State::POS);
 
     vPlayerPos += _float4(0.f, 1.f, 0.f, 0.f);
@@ -129,7 +154,7 @@ void MainCameraScript::Update_Transform()
     // Set Position
     if (m_fFixedTime > 0.f)
     {
-        m_fFixedTime -= fDT;
+        m_fFixedTime -= fABT;
       
         if ((fMinDist - 0.5f) >= m_fFixedDist)
             fMinDist = m_fFixedDist;
@@ -137,7 +162,7 @@ void MainCameraScript::Update_Transform()
         _float4 vPrePos = Get_Transform()->Get_State(Transform_State::POS);
 
         _float4 pos = _float4::Lerp(vPrePos, vCenterPos + _float4(m_vFixedDir, 0.f) * fMinDist,
-            fDT * m_fFollowSpeed);
+            fABT * m_fFollowSpeed);
 
         Get_Transform()->Set_State(Transform_State::POS, pos);
         Get_Transform()->LookAt(vCenterPos);
@@ -160,11 +185,11 @@ void MainCameraScript::Update_Transform()
                 fMinDist = m_fFixedDist;
                
             }*/
-			m_fFixedDist = _float2::Lerp({ m_fFixedDist,0.f }, { m_fMaxDistance,0.f }, fDT).x;
+			m_fFixedDist = _float2::Lerp({ m_fFixedDist,0.f }, { m_fMaxDistance,0.f }, fABT).x;
             if(m_fFixedDist < fMinDist)
             fMinDist = m_fFixedDist;
-            _float3 tmp = Transform::SLerpMatrix(matCurDir, matNextDir, fDT * m_fFollowSpeed).Backward();
-            _float4 pos = vPlayerPos + Transform::SLerpMatrix(matCurDir, matNextDir, fDT * m_fFollowSpeed).Backward() * fMinDist;
+            _float3 tmp = Transform::SLerpMatrix(matCurDir, matNextDir, fABT * m_fFollowSpeed).Backward();
+            _float4 pos = vPlayerPos + Transform::SLerpMatrix(matCurDir, matNextDir, fABT * m_fFollowSpeed).Backward() * fMinDist;
 
             Get_Transform()->Set_State(Transform_State::POS, pos);
 
@@ -242,6 +267,8 @@ void MainCameraScript::Find_Target()
 
 void MainCameraScript::Check_ColliderWithWall(const _float3& centerPos, OUT _float& minDist)
 {
+    if (m_fMaxDistance > 5.f)
+        return;
 	Ray ray;
 	ray.position = centerPos;
 	m_vOffset.Normalize();

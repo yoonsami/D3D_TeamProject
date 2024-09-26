@@ -1,7 +1,7 @@
 #pragma once
-#include "FSM.h"
+#include "NPC_FSM.h"
 class GranseedGuard01_FSM :
-    public FSM
+    public NPC_FSM
 {
 public:
 	enum class STATE
@@ -29,17 +29,29 @@ public:
 public:
 	virtual HRESULT Init() override;
 	virtual void Tick() override;
-	virtual void Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookTarget) override;
-
+	virtual void Get_Hit(const wstring& skillname, _float fDamage, shared_ptr<GameObject> pLookTarget) override {}
+	void InteractWithPlayer() override;
 private:
 	virtual void State_Tick() override;
 	virtual void State_Init() override;
-	virtual void OnCollision(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void OnCollisionEnter(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void OnCollisionExit(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void AttackCollider_On(const wstring& skillname) override;
-	virtual void AttackCollider_Off() override;
+	void	n_idle();
+	void	n_idle_Init();
+	void	run();
+	void	run_Init();
+	void	talk();
+	void	talk_Init();
+	void	walk();
+	void	walk_Init();
+
+private:
+
 	virtual void Set_State(_uint iIndex) override;
+
+
+
+private:
+	STATE m_eCurState = STATE::n_idle;
+	STATE m_ePreState = STATE::NONE;
 
 
 };

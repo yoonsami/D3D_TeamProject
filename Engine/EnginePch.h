@@ -10,6 +10,7 @@
 #include <memory>
 #include <io.h>
 #include <iostream>
+#include <random>
 #include <fstream>
 #include <array>
 #include <vector>
@@ -104,6 +105,7 @@ using namespace physx;
 #include "InstancingMgr.h"
 #include "CollisionMgr.h"
 #include "PhysxMgr.h"
+#include "EventMgr.h"
 
 // Engine
 #include "VertexData.h"

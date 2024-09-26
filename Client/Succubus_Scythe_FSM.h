@@ -1,9 +1,9 @@
 #pragma once
-#include "FSM.h"
+#include "Client_FSM.h"
 #include "ForwardMovingSkillScript.h"
 
 class Succubus_Scythe_FSM :
-	public FSM
+	public Client_FSM
 {
 public:
 	enum class STATE
@@ -12,7 +12,8 @@ public:
 		b_run,
 		n_run,
 		wander,
-		die,
+		die_01,
+		die_02,
 		gaze_b,
 		gaze_f,
 		gaze_l,
@@ -38,17 +39,12 @@ public:
 public:
 	virtual HRESULT Init() override;
 	virtual void Tick() override;
-	virtual void Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookTarget) override;
+	virtual void Get_Hit(const wstring& skillname, _float fDamage, shared_ptr<GameObject> pLookTarget) override;
 
 
 private:
 	virtual void State_Tick() override; // 상태를 항상 업데이트해줌
 	virtual void State_Init() override; // 상태가 바뀔 때 한번 초기화 해줌
-	virtual void OnCollision(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void OnCollisionEnter(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void OnCollisionExit(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void AttackCollider_On(const wstring& skillname) override;
-	virtual void AttackCollider_Off() override;
 	virtual void Set_State(_uint iIndex) override;
 
 	void b_idle();
@@ -60,8 +56,11 @@ private:
 	void wander();
 	void wander_Init();
 
-	void die();
-	void die_Init();
+	void die_01();
+	void die_01_Init();
+	void die_02();
+	void die_02_Init();
+
 
 	void gaze_b();
 	void gaze_b_Init();
@@ -108,11 +107,14 @@ private:
 
 	void CalCulate_PatrolTime();
 	void Set_Gaze();
+	void Dead_Setting();
 	void Entry_Battle();
 	void Set_AttackSkill();
+	void Detect_Target();
+	void Target_DeadCheck();
+
 
 	_float3 Calculate_TargetTurnVector();
-	void Create_ForwardMovingSkillCollider(const _float4& vPos, _float fSkillRange, FORWARDMOVINGSKILLDESC desc, const wstring& SkillType);
 
 
 private:
@@ -128,11 +130,11 @@ private:
 	_float4 m_vPatrolFirstPos = { 0.f,0.f,0.f,1.f };
 
 	_bool m_bSetPattern = false;
-	_bool m_bDetected = false;
 	_bool m_bPatrolMove = false;
 
 	COOLTIMEINFO m_tAttackCoolTime = { 4.f, 0.f };
 	COOLTIMEINFO m_tPatrolMoveCool = { 4.f,0.f };
+	COOLTIMEINFO m_tDetectCoolTime = { 1.f, 0.f };
 
 	_uint m_iPreAttack = 100;
 };

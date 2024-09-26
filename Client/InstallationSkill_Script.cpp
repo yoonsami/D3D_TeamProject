@@ -7,6 +7,11 @@ InstallationSkill_Script::InstallationSkill_Script(INSTALLATIONSKILLDESC desc)
 {
 	m_vLook = desc.vSkillDir;
 	m_fMoveSpeed = desc.fMoveSpeed;
+
+	m_fFirstAttackDamage = desc.fAttackDamage;
+	m_fAttackDamage = desc.fAttackDamage;
+	m_fLastAttackDamage = desc.fLastAttackDamage;
+	
 	m_bFirstAttack = desc.bFirstAttack;
 
 	m_tAttackTickTime.fCoolTime = desc.fAttackTickTime;
@@ -39,6 +44,7 @@ HRESULT InstallationSkill_Script::Init()
 	{
 		m_pOwner.lock()->Get_Collider()->Set_Activate(false);
 		m_pOwner.lock()->Get_Script<AttackColliderInfoScript>()->Set_SkillName(m_strAttackType);
+		m_pOwner.lock()->Get_Script<AttackColliderInfoScript>()->Set_AttackDamage(m_fAttackDamage);
 	}
 
 	return S_OK;
@@ -61,20 +67,25 @@ void InstallationSkill_Script::Tick()
 			m_tAttackTickTime.fAccTime = 0.f;
 			m_bAttackOn = true;
 			m_iCurrentAttackCnt++;
+			m_pOwner.lock()->Get_Script<AttackColliderInfoScript>()->Set_AttackDamage(m_fAttackDamage);
 
 			if (m_iCurrentAttackCnt == m_iLimitAttackCnt)
+			{
 				m_pOwner.lock()->Get_Script<AttackColliderInfoScript>()->Set_SkillName(m_strLastAttackType);
+				m_pOwner.lock()->Get_Script<AttackColliderInfoScript>()->Set_AttackDamage(m_fLastAttackDamage);
+			}
 		}
 		else
 		{
+			if (m_iCurrentAttackCnt >= m_iLimitAttackCnt)
+				EVENTMGR.Delete_Object(m_pOwner.lock());
+
 			if (m_bAttackOn)
 			{
 				m_bAttackOn = false;
 				m_pOwner.lock()->Get_Collider()->Set_Activate(false);
+				m_fAttackDamage = m_fFirstAttackDamage + _float(rand() % 10);
 			}
 		}
 	}
-
-	if (m_iCurrentAttackCnt > m_iLimitAttackCnt)
-		CUR_SCENE->Remove_GameObject(m_pOwner.lock());
 }

@@ -38,7 +38,7 @@ void Scene::Init()
 
 	SSAO_MakeFrustumFarCorners();
 
-	auto objects = m_GameObjects;
+	auto& objects = m_GameObjects;
 	for (auto& object : objects)
 	{
 		object->Init();
@@ -47,32 +47,32 @@ void Scene::Init()
 
 void Scene::Tick()
 {
-	
-	auto objects = m_GameObjects;
+	auto& objects = m_GameObjects;
 	for (auto& object : objects)
 	{
-		object->Tick();
+		if(true == object->Is_Tick())
+			object->Tick();
 	}
 	PickUI();
 }
 
 void Scene::Late_Tick()
 {
-
-	auto objects = m_GameObjects;
+	auto& objects = m_GameObjects;
 	for (auto& object : objects)
 	{
-		object->Late_Tick();
+		if (true == object->Is_Tick())
+			object->Late_Tick();
 	}
 }
 
 void Scene::Final_Tick()
 {
-
-	auto objects = m_GameObjects;
+	auto& objects = m_GameObjects;
 	for (auto& object : objects)
 	{
-		object->Final_Tick();
+		if (true == object->Is_Tick())
+			object->Final_Tick();
 	}
 }
 
@@ -80,46 +80,65 @@ void Scene::Render()
 {
 
 	Gather_LightData();
+
 	Sort_GameObjects();
+
+
 	Render_Shadow();
+
 	Render_MotionBlur();
+
 	Render_Deferred();
-	Render_DefferedBlur();
-	if(g_SSAOData.g_bSSAO_On)
+
+	if (g_SSAOData.g_bSSAO_On)
 	{
 		Render_SSAO();
-		Render_SSAOBlur(3);
+		Render_SSAOBlur(2);
 	}
+
+
 	Render_Lights();
+
+	Render_AfterUI();
 	//Render_BlurEffect();
 	Render_LightFinal();
-	Render_SkyBox();
-	Render_DOFMap();
-	Render_DOFMapScaling();
-	Render_DOFFinal();
-	Render_Fog();
 	Render_MotionBlurFinal();
 
+	Render_SkyBox();
 
+
+
+	Render_DOFMap();
+	Render_DOFMapScaling(2);
+
+	Render_DOFFinal();
+
+
+
+	Render_Fog();
 	Render_Forward();
 
 	Render_BloomMap();
 	Render_BloomMapScaling();
+
 	Render_BloomFinal();
+
+
+
 	Render_OutLine();
 	Render_Distortion();
 	Render_Distortion_Final();
 	Render_LensFlare();
 
 	Render_Aberration();
+	Render_RadialBlur();
 
+	Render_Vignette();
 	Render_Debug();
-
-
-	Render_UI();
 	//Render_ToneMapping();
 
-	//Render_BackBuffer();
+	Render_UI();
+
 }
 
 HRESULT Scene::Load_Scene()
@@ -132,16 +151,24 @@ void Scene::Add_GameObject(shared_ptr<GameObject> object, _bool staticFlag)
 	m_GameObjects.push_back(object);
 
 	if (object->Get_Camera())
-		m_Cameras.push_back(object);
+		m_Cameras.push_back(object); 
 
 	if (object->Get_Light())
 		m_Lights.push_back(object);
 
 	if (object->Get_LayerIndex() == Layer_UI)
+	{
 		m_UI.push_back(object);
+
+		if (nullptr != object->Get_Button())
+			m_ButtonUI.push_back(object);
+	}
 
 	if (staticFlag)
 		m_StaticObject.push_back(object);
+
+	if (object->Get_Name() == L"Player")
+		m_pPlayer = object;
 }
 
 void Scene::Add_GameObject_Front(shared_ptr<GameObject> object, _bool staticFlag)
@@ -155,16 +182,22 @@ void Scene::Add_GameObject_Front(shared_ptr<GameObject> object, _bool staticFlag
 		m_Lights.push_back(object);
 
 	if (object->Get_LayerIndex() == Layer_UI)
+	{
 		m_UI.push_back(object);
 
+		if (nullptr != object->Get_Button())
+			m_ButtonUI.push_back(object);
+	}
+
 	if (staticFlag)
-		m_StaticObject.push_back(object);
+		m_StaticObject.push_front(object);
+
+	if (object->Get_Name() == L"Player")
+		m_pPlayer = object;
 }
 
 void Scene::Remove_GameObject(shared_ptr<GameObject> object)
 {
-
-
 	{
 		auto findit = find(m_GameObjects.begin(), m_GameObjects.end(), object);
 		if (findit != m_GameObjects.end())
@@ -189,6 +222,11 @@ void Scene::Remove_GameObject(shared_ptr<GameObject> object)
 		auto findit = find(m_StaticObject.begin(), m_StaticObject.end(), object);
 		if (findit != m_StaticObject.end())
 			m_StaticObject.erase(findit);
+	}
+	{
+		auto findit = find(m_ButtonUI.begin(), m_ButtonUI.end(), object);
+		if (findit != m_ButtonUI.end())
+			m_ButtonUI.erase(findit);
 	}
 }
 
@@ -280,7 +318,7 @@ void Scene::Swap_Object(const wstring& leftObjName, const wstring& rightObjName)
 	}
 }
 
-void Scene::Load_UIFile(const wstring& strDataFilePath, const vector<shared_ptr<GameObject>>& staticObjects, _bool bRender)
+void Scene::Load_UIFile(const wstring& strDataFilePath, const list<shared_ptr<GameObject>>& staticObjects, _bool bRender, _bool bTick)
 {
 	shared_ptr<FileUtils> file = make_shared<FileUtils>();
 	file->Open(strDataFilePath, FileMode::Read);
@@ -350,6 +388,7 @@ void Scene::Load_UIFile(const wstring& strDataFilePath, const vector<shared_ptr<
 
 		UiObject->Set_LayerIndex(Layer_UI);
 		UiObject->Set_Instancing(false);
+		UiObject->Set_Tick(bTick);
 		UiObject->Set_Render(bRender);
 
 		_bool bIsStatic = file->Read<_bool>();
@@ -652,7 +691,7 @@ void Scene::Load_MapFile(const wstring& _mapFileName, shared_ptr<GameObject> pPl
 		_float3 CullPos = _float3{ 0.f, 0.f, 0.f };
 		_float CullRadius = { 0.f };
 		// CullMode
-		_bool bCullNone = false;
+		_char bCullNone = 0;
 		// Dummy
 		_float4x4 matDummyData = _float4x4::Identity;
 
@@ -690,7 +729,7 @@ void Scene::Load_MapFile(const wstring& _mapFileName, shared_ptr<GameObject> pPl
 		}
 		file->Read<_float3>(CullPos);
 		file->Read<_float>(CullRadius);
-		file->Read<_bool>(bCullNone);
+		file->Read<_char>(bCullNone);
 		file->Read<_float4x4>(matDummyData);
 
 // 오브젝트 생성
@@ -728,11 +767,11 @@ void Scene::Load_MapFile(const wstring& _mapFileName, shared_ptr<GameObject> pPl
 			CreateObject->Add_Component(renderer);
 			renderer->Set_Model(model);
 			// 컬방향
-			if (bCullNone)
-				renderer->Set_PassType(ModelRenderer::PASS_MAPOBJECT_CULLNONE);
-			else
-				renderer->Set_PassType(ModelRenderer::PASS_MAPOBJECT);
+
+				renderer->Set_PassType((ModelRenderer::INSTANCE_PASSTYPE)bCullNone);
+
 			renderer->SetVec4(0, _float4(fUVWeight,0,0,0));
+			CreateObject->Set_FrustumCulled(true);
 		}
 
 		// 트랜스폼 생성
@@ -864,25 +903,45 @@ void Scene::Load_MapFile(const wstring& _mapFileName, shared_ptr<GameObject> pPl
 
 void Scene::PickUI()
 {
-	if (!KEYTAP(KEY_TYPE::LBUTTON))
+	if (false == INPUT.Get_IsCanMove())
+		return;
+
+	if (!KEYPUSH(KEY_TYPE::LBUTTON))
 		return;
 
 	if (!Get_UICamera())
 		return;
 
 	POINT screenPt = INPUT.GetMousePosToPoint();
+	_bool bIsTap = KEYTAP(KEY_TYPE::LBUTTON);
 
-	shared_ptr<Camera> camera = Get_UICamera()->Get_Camera();
-
-	const auto gameobjects = m_GameObjects;
-
+	const auto gameobjects = m_ButtonUI;
 	for (auto& gameObject : gameobjects)
 	{
-		if(!gameObject->Get_Button())
+		if (false == gameObject->Is_Render())
 			continue;
+		
+		auto Button = gameObject->Get_Button();
+		if (true == Button->Get_Type() && true == bIsTap)
+		{
+			if (Button->Picked(screenPt))
+			{
+				Button->InvokeOnClicked();
 
-		if (gameObject->Get_Button()->Picked(screenPt))
-			gameObject->Get_Button()->InvokeOnClicked();
+				break;
+			}
+		}
+
+		else if (false == Button->Get_Type())
+		{
+			if (Button->Picked(screenPt))
+			{
+				Button->InvokeOnClicked();
+
+				break;
+			}
+		}
+		
 	}
 
 }
@@ -950,51 +1009,7 @@ void Scene::Render_Deferred()
 	//GRAPHICS.Get_RTGroup(RENDER_TARGET_GROUP_TYPE::G_BUFFER)->UnBindSRV();
 }
 
-void Scene::Render_DefferedBlur()
-{
-	/*float a[25] = {
-	1.0f / 273.0f,  4.0f / 273.0f,  7.0f / 273.0f,  4.0f / 273.0f,  1.0f / 273.0f,
-	4.0f / 273.0f,  16.0f / 273.0f, 26.0f / 273.0f, 16.0f / 273.0f, 4.0f / 273.0f,
-	7.0f / 273.0f,  26.0f / 273.0f, 41.0f / 273.0f, 26.0f / 273.0f, 7.0f / 273.0f,
-	4.0f / 273.0f,  16.0f / 273.0f, 26.0f / 273.0f, 16.0f / 273.0f, 4.0f / 273.0f,
-	1.0f / 273.0f,  4.0f / 273.0f,  7.0f / 273.0f,  4.0f / 273.0f,  1.0f / 273.0f
-	};*/
-	for (_uchar i = 0; i < 2; ++i)
-	{
-		RENDER_TARGET_GROUP_TYPE eType = static_cast<RENDER_TARGET_GROUP_TYPE>(static_cast<_uchar>(RENDER_TARGET_GROUP_TYPE::BLURSMALLER0) + i);
-		GRAPHICS.Get_RTGroup(eType)->OMSetRenderTargets();
-		auto material = RESOURCES.Get<Material>(L"BlurSmaller" + to_wstring(i));
-		auto mesh = RESOURCES.Get<Mesh>(L"Quad");
-		//material->Get_Shader()->GetScalar("GaussianWeight")->SetFloatArray(a, 0, 25);
-		//material->Get_Shader()->GetScalar("DownScalePower")->SetFloat(m_fDownScalePower);
-		material->Push_SubMapData();
 
-		mesh->Get_VertexBuffer()->Push_Data();
-		mesh->Get_IndexBuffer()->Push_Data();
-
-		CONTEXT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		material->Get_Shader()->DrawIndexed(0, 0, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
-	}
-
-	for (_uchar i = 0; i < 2; ++i)
-	{
-		RENDER_TARGET_GROUP_TYPE eType = static_cast<RENDER_TARGET_GROUP_TYPE>(static_cast<_uchar>(RENDER_TARGET_GROUP_TYPE::BLURBIGGER0) + i);
-		GRAPHICS.Get_RTGroup(eType)->OMSetRenderTargets();
-		auto material = RESOURCES.Get<Material>(L"BlurBigger" + to_wstring(i));
-		auto mesh = RESOURCES.Get<Mesh>(L"Quad");
-	//	material->Get_Shader()->GetScalar("UpScalePower")->SetFloat(m_fUpScalePower);
-
-		material->Push_SubMapData();
-
-		mesh->Get_VertexBuffer()->Push_Data();
-		mesh->Get_IndexBuffer()->Push_Data();
-
-		CONTEXT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		material->Get_Shader()->DrawIndexed(0, 1, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
-	}
-}
 
 void Scene::Render_SSAO()
 {
@@ -1026,36 +1041,41 @@ void Scene::Render_SSAO()
 
 	material->Get_Shader()->DrawIndexed(0, 0, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
 
-
+	m_wstrFinalRenderTarget = L"SSAOTarget";
 }
 
-void Scene::Render_SSAOBlur(_uint blurCount)
+void Scene::Render_SSAOBlur(_uint downSamplingCount)
 {
-	for (_uchar i = 0; i < 3; ++i)
+
+	for (_uint i = 0; i < downSamplingCount; ++i)
 	{
-		RENDER_TARGET_GROUP_TYPE eType = static_cast<RENDER_TARGET_GROUP_TYPE>(static_cast<_uchar>(RENDER_TARGET_GROUP_TYPE::SSAODOWNSCALE0) + i);
+		RENDER_TARGET_GROUP_TYPE eType = static_cast<RENDER_TARGET_GROUP_TYPE>(static_cast<_uchar>(RENDER_TARGET_GROUP_TYPE::DOWNSAMPLER0) + i);
 		GRAPHICS.Get_RTGroup(eType)->OMSetRenderTargets();
-		auto material = RESOURCES.Get<Material>(L"SSAODownScale" + to_wstring(i));
+
+		auto material = RESOURCES.Get<Material>(L"Sampler");
 		auto mesh = RESOURCES.Get<Mesh>(L"Quad");
-		//material->Get_Shader()->GetScalar("GaussianWeight")->SetFloatArray(a, 0, 25);
-		//material->Get_Shader()->GetScalar("DownScalePower")->SetFloat(m_fDownScalePower);
+		material->Set_SubMap(0, RESOURCES.Get<Texture>(m_wstrFinalRenderTarget));
+
 		material->Push_SubMapData();
 
 		mesh->Get_VertexBuffer()->Push_Data();
+
 		mesh->Get_IndexBuffer()->Push_Data();
 
 		CONTEXT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 		material->Get_Shader()->DrawIndexed(0, 2, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
+
+		m_wstrFinalRenderTarget = L"DownSample" + to_wstring(i);
 	}
 
-	for (_uchar i = 0; i < 3; ++i)
+	for (_int i = downSamplingCount - 1; i >=0 ; --i)
 	{
-		RENDER_TARGET_GROUP_TYPE eType = static_cast<RENDER_TARGET_GROUP_TYPE>(static_cast<_uchar>(RENDER_TARGET_GROUP_TYPE::SSAOUPSCALE0) + i);
+		RENDER_TARGET_GROUP_TYPE eType = static_cast<RENDER_TARGET_GROUP_TYPE>(static_cast<_uchar>(RENDER_TARGET_GROUP_TYPE::UPSAMPLER0) + i);
 		GRAPHICS.Get_RTGroup(eType)->OMSetRenderTargets();
-		auto material = RESOURCES.Get<Material>(L"SSAOUpScale" + to_wstring(i));
+		auto material = RESOURCES.Get<Material>(L"Sampler");
 		auto mesh = RESOURCES.Get<Mesh>(L"Quad");
-		//	material->Get_Shader()->GetScalar("UpScalePower")->SetFloat(m_fUpScalePower);
+		material->Set_SubMap(0, RESOURCES.Get<Texture>(m_wstrFinalRenderTarget));
 
 		material->Push_SubMapData();
 
@@ -1064,12 +1084,12 @@ void Scene::Render_SSAOBlur(_uint blurCount)
 
 		CONTEXT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-		if (i != 2)
-			material->Get_Shader()->DrawIndexed(0, 2, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
-		else
-			material->Get_Shader()->DrawIndexed(0, 1, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
+		material->Get_Shader()->DrawIndexed(0, 1, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
 
+		m_wstrFinalRenderTarget = L"UpSample" + to_wstring(i);
 	}
+	RESOURCES.Get<Material>(L"LightMaterial")->Set_SubMap(3, RESOURCES.Get<Texture>(m_wstrFinalRenderTarget));
+	
 }
 
 void Scene::Render_Lights()
@@ -1086,8 +1106,6 @@ void Scene::Render_Lights()
 
 	GRAPHICS.Get_RTGroup(RENDER_TARGET_GROUP_TYPE::LIGHTING)->OMSetRenderTargets();
 
-	
-
 	for (auto& light : m_Lights)
 	{
 		if (light->Get_Light()->Get_LightInfo().lightType == static_cast<_int>(LIGHT_TYPE::POINT_LIGHT))
@@ -1098,10 +1116,6 @@ void Scene::Render_Lights()
 		}
 		light->Get_Light()->Render();
 	}
-
-
-
-	//GRAPHICS.Get_RTGroup(RENDER_TARGET_GROUP_TYPE::LIGHTING)->UnBindSRV();
 }
 
 void Scene::Render_LightFinal()
@@ -1110,7 +1124,6 @@ void Scene::Render_LightFinal()
 
 	auto material = RESOURCES.Get<Material>(L"LightFinal");
 	auto mesh = RESOURCES.Get<Mesh>(L"Quad");
-
 
 	material->Get_Shader()->GetScalar("g_SSAO_On")->SetBool(g_SSAOData.g_bSSAO_On);
 
@@ -1170,12 +1183,18 @@ void Scene::Render_MotionBlurFinal()
 	if (!g_MotionBlurData.g_bMotionBlurOn) return;
 	GRAPHICS.Get_RTGroup(RENDER_TARGET_GROUP_TYPE::MOTIONBLURFINAL)->OMSetRenderTargets();
 
+
+
 	auto material = RESOURCES.Get<Material>(L"MotionBlurFinal");
 	auto mesh = RESOURCES.Get<Mesh>(L"Quad");
 	material->Set_SubMap(1, RESOURCES.Get<Texture>(m_wstrFinalRenderTarget));
 	material->Get_Shader()->GetScalar("g_BlurCount")->SetInt(g_MotionBlurData.g_iBlurCount);
+	material->Get_Shader()->GetScalar("g_MotionBlurPower")->SetFloat(g_MotionBlurData.g_MotionBlurPower);
 
 	material->Push_SubMapData();
+
+	auto camera = Get_MainCamera()->Get_Camera();
+	material->Get_Shader()->Push_GlobalData(camera->Get_ViewMat(), camera->Get_ProjMat());
 
 	mesh->Get_VertexBuffer()->Push_Data();
 	mesh->Get_IndexBuffer()->Push_Data();
@@ -1325,12 +1344,57 @@ void Scene::Render_DOFMap()
 	material->Get_Shader()->DrawIndexed(1, 2, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
 }
 
-void Scene::Render_DOFMapScaling()
+void Scene::Render_DOFMapScaling(_uint blurCount)
 {
 	if (!g_DOFData.g_bDOF_On)
 		return;
 
-	for (_uchar i = 0; i < 3; ++i)
+	wstring rtTexture = m_wstrFinalRenderTarget;
+
+	for (_uint i = 0; i < blurCount; ++i)
+	{
+		RENDER_TARGET_GROUP_TYPE eType = static_cast<RENDER_TARGET_GROUP_TYPE>(static_cast<_uchar>(RENDER_TARGET_GROUP_TYPE::DOWNSAMPLER0) + i);
+		GRAPHICS.Get_RTGroup(eType)->OMSetRenderTargets();
+
+		auto material = RESOURCES.Get<Material>(L"Sampler");
+		auto mesh = RESOURCES.Get<Mesh>(L"Quad");
+		material->Set_SubMap(0, RESOURCES.Get<Texture>(rtTexture));
+
+		material->Push_SubMapData();
+
+		mesh->Get_VertexBuffer()->Push_Data();
+
+		mesh->Get_IndexBuffer()->Push_Data();
+
+		CONTEXT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		material->Get_Shader()->DrawIndexed(0, 2, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
+
+		rtTexture = L"DownSample" + to_wstring(i);
+	}
+
+	for (_int i = blurCount - 1; i >= 0; --i)
+	{
+		RENDER_TARGET_GROUP_TYPE eType = static_cast<RENDER_TARGET_GROUP_TYPE>(static_cast<_uchar>(RENDER_TARGET_GROUP_TYPE::UPSAMPLER0) + i);
+		GRAPHICS.Get_RTGroup(eType)->OMSetRenderTargets();
+		auto material = RESOURCES.Get<Material>(L"Sampler");
+		auto mesh = RESOURCES.Get<Mesh>(L"Quad");
+		material->Set_SubMap(0, RESOURCES.Get<Texture>(rtTexture));
+
+		material->Push_SubMapData();
+
+		mesh->Get_VertexBuffer()->Push_Data();
+		mesh->Get_IndexBuffer()->Push_Data();
+
+		CONTEXT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		material->Get_Shader()->DrawIndexed(0, 1, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
+
+		rtTexture = L"UpSample" + to_wstring(i);
+	}
+	RESOURCES.Get<Material>(L"DOFFinal")->Set_SubMap(1, RESOURCES.Get<Texture>(rtTexture));
+
+	/*for (_uchar i = 0; i < 3; ++i)
 	{
 		RENDER_TARGET_GROUP_TYPE eType = static_cast<RENDER_TARGET_GROUP_TYPE>(static_cast<_uchar>(RENDER_TARGET_GROUP_TYPE::DOFDOWNSCALE0) + i);
 		GRAPHICS.Get_RTGroup(eType)->OMSetRenderTargets();
@@ -1365,7 +1429,7 @@ void Scene::Render_DOFMapScaling()
 			material->Get_Shader()->DrawIndexed(0, 2, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
 		else
 			material->Get_Shader()->DrawIndexed(0, 1, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
-	}
+	}*/
 }
 
 void Scene::Render_DOFFinal()
@@ -1455,6 +1519,8 @@ void Scene::Render_LensFlare()
 	auto mesh = RESOURCES.Get<Mesh>(L"Quad");
 	material->Set_SubMap(0, RESOURCES.Get<Texture>(m_wstrFinalRenderTarget));
 
+	auto camera = Get_MainCamera()->Get_Camera();
+	material->Get_Shader()->Push_GlobalData(camera->Get_ViewMat(), camera->Get_ProjMat());
 
 
 	material->Get_Shader()->GetVector("g_LightPos")->SetFloatVector((_float*)&proj);
@@ -1517,6 +1583,8 @@ void Scene::Render_LensFlare()
 		//	material->Get_Shader()->GetScalar("UpScalePower")->SetFloat(m_fUpScalePower);
 		material->Set_SubMap(0, RESOURCES.Get<Texture>(m_wstrFinalRenderTarget));
 		material->Push_SubMapData();
+		auto camera = Get_MainCamera()->Get_Camera();
+		material->Get_Shader()->Push_GlobalData(camera->Get_ViewMat(), camera->Get_ProjMat());
 
 		mesh->Get_VertexBuffer()->Push_Data();
 		mesh->Get_IndexBuffer()->Push_Data();
@@ -1586,6 +1654,57 @@ void Scene::Render_Aberration()
 	m_wstrFinalRenderTarget = L"AberrationTarget";
 }
 
+void Scene::Render_RadialBlur()
+{
+	if (!g_RadialBlurData.g_bRadialBlurOn)
+		return;
+
+	GRAPHICS.Get_RTGroup(RENDER_TARGET_GROUP_TYPE::RADIALBLUR)->OMSetRenderTargets();
+
+	auto material = RESOURCES.Get<Material>(L"Sampler");
+	auto mesh = RESOURCES.Get<Mesh>(L"Quad");
+	material->Set_SubMap(0, RESOURCES.Get<Texture>(m_wstrFinalRenderTarget));
+
+	material->Push_SubMapData();
+	mesh->Get_VertexBuffer()->Push_Data();
+	mesh->Get_IndexBuffer()->Push_Data();
+
+	material->Get_Shader()->GetScalar("g_fRadialBlurStrength")->SetFloat(g_RadialBlurData.g_fRadialBlurStrength);
+	material->Get_Shader()->GetScalar("g_fNormalRadius")->SetFloat(g_RadialBlurData.g_fNormalRadius);
+	material->Get_Shader()->GetScalar("g_iSamples")->SetInt(g_RadialBlurData.g_iSamples);
+	material->Get_Shader()->GetVector("g_vCenterPos")->SetFloatVector((_float*)&g_RadialBlurData.g_vCenterPos);
+
+	CONTEXT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+
+	material->Get_Shader()->DrawIndexed(1, 1, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
+	m_wstrFinalRenderTarget = L"RadialBlurTarget";
+}
+
+void Scene::Render_Vignette()
+{
+	if (!g_VignetteData.g_bVignetteOn)
+		return;
+
+	GRAPHICS.Get_RTGroup(RENDER_TARGET_GROUP_TYPE::VIGNETTE)->OMSetRenderTargets();
+
+	auto material = RESOURCES.Get<Material>(L"AberrationFinal");
+	auto mesh = RESOURCES.Get<Mesh>(L"Quad");
+	material->Set_SubMap(0, RESOURCES.Get<Texture>(m_wstrFinalRenderTarget));
+
+	material->Push_SubMapData();
+	mesh->Get_VertexBuffer()->Push_Data();
+	mesh->Get_IndexBuffer()->Push_Data();
+
+	material->Get_Shader()->GetScalar("g_fVignettePower")->SetFloat(g_VignetteData.g_fVignettePower);
+
+	CONTEXT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+
+	material->Get_Shader()->DrawIndexed(1, 3, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
+	m_wstrFinalRenderTarget = L"VignetteTarget";
+}
+
 void Scene::Render_Debug()
 {
 	if (m_bRenderDebug)
@@ -1606,6 +1725,48 @@ void Scene::Render_UI()
 
 		uiCamera->Render_Forward();
 	}
+}
+
+void Scene::Render_AfterUI()
+{
+	GRAPHICS.Get_RTGroup(RENDER_TARGET_GROUP_TYPE::AFTER_UI)->OMSetRenderTargets();
+	if (Get_Camera(L"After_UI"))
+	{
+		shared_ptr<Camera> mainCamera = Get_Camera(L"After_UI")->Get_Camera();
+		Camera::S_View = mainCamera->Get_ViewMat();
+		Camera::S_Proj = mainCamera->Get_ProjMat();
+
+
+		mainCamera->Render_AfterUI();
+	}
+	GRAPHICS.Get_RTGroup(RENDER_TARGET_GROUP_TYPE::AFTER_UI_TONEMAPPING)->OMSetRenderTargets();
+
+	{
+		auto material = RESOURCES.Get<Material>(L"BackBufferRenderFinal");
+		auto mesh = RESOURCES.Get<Mesh>(L"Quad");
+
+		material->Set_SubMap(0, RESOURCES.Get<Texture>(L"AFTER_UITarget"));
+
+
+
+		material->Get_Shader()->GetScalar("g_brightness")->SetFloat(g_fBrightness);
+		material->Get_Shader()->GetScalar("g_contrast")->SetFloat(g_fContrast);
+		material->Get_Shader()->GetScalar("g_saturation")->SetFloat(g_Saturation);
+		material->Get_Shader()->GetScalar("g_max_white")->SetFloat(g_fMaxWhite);
+
+
+
+		material->Push_SubMapData();
+		mesh->Get_VertexBuffer()->Push_Data();
+		mesh->Get_IndexBuffer()->Push_Data();
+
+		CONTEXT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		if (g_iTMIndex > 3) g_iTMIndex = 3;
+
+		material->Get_Shader()->DrawIndexed(0, g_iTMIndex, mesh->Get_IndexBuffer()->Get_IndicesNum(), 0, 0);
+	}
+
 }
 
 

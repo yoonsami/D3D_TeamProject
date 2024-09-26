@@ -52,6 +52,12 @@
     <Filter Include="02.Component\00.MonoBehaviour\00.MapObject">
       <UniqueIdentifier>{a1cb13ea-80f9-4503-b57d-c660c7b73281}</UniqueIdentifier>
     </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.WaterUVSlide">
+      <UniqueIdentifier>{6c13c1d1-a6f8-4967-808f-89630c85d88a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\02.Weed">
+      <UniqueIdentifier>{5b1d53e9-99e2-477f-940f-694ce762fc01}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resource.h">
@@ -147,6 +153,12 @@
     <ClInclude Include="MapObjectScript.h">
       <Filter>02.Component\00.MonoBehaviour\00.MapObject</Filter>
     </ClInclude>
+    <ClInclude Include="WaterUVSliding.h">
+      <Filter>02.Component\00.MonoBehaviour\01.WaterUVSlide</Filter>
+    </ClInclude>
+    <ClInclude Include="WeedScript.h">
+      <Filter>02.Component\00.MonoBehaviour\02.Weed</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -223,6 +235,12 @@
     </ClCompile>
     <ClCompile Include="MapObjectScript.cpp">
       <Filter>02.Component\00.MonoBehaviour\00.MapObject</Filter>
+    </ClCompile>
+    <ClCompile Include="WaterUVSliding.cpp">
+      <Filter>02.Component\00.MonoBehaviour\01.WaterUVSlide</Filter>
+    </ClCompile>
+    <ClCompile Include="WeedScript.cpp">
+      <Filter>02.Component\00.MonoBehaviour\02.Weed</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

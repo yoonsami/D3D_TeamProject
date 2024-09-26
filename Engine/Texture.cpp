@@ -159,5 +159,7 @@ void Texture::CreateShadowDST(_float _width, _float _height)
 	srvDesc.Texture2D.MipLevels = texDesc.MipLevels;
 	srvDesc.Texture2D.MostDetailedMip = 0;
 	(DEVICE->CreateShaderResourceView(m_pTexture.Get(), &srvDesc, m_pShaderResourceView.GetAddressOf()));
+
+	m_Size = { _width,_height };
 }
 

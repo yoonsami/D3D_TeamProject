@@ -13,7 +13,7 @@ public:
     void                PlayEffect();
     
     void                Set_GroupEffectTag(const wstring& wstrTag) { m_wstrGroupEffectTag = wstrTag; }
-
+    void                Set_GroupEffectScript(shared_ptr<MonoBehaviour> pScript);
 private:
     _bool                   m_bIsFirstTick = {true};
     wstring                 m_wstrGroupEffectTag;

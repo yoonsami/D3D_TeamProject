@@ -189,6 +189,14 @@ SamplerState LinearSamplerBorder
     BorderColor = float4(0.0f, 0.0f, 0.0f, 0.0f);
 };
 
+SamplerState PointSamplerBorder
+{
+    Filter = MIN_MAG_MIP_POINT;
+    AddressU = Border;
+    AddressV = Border;
+    BorderColor = float4(1.f,1.f,1.f,1.f);
+};
+
 SamplerState LinearSamplerMirror
 {
     Filter = MIN_MAG_MIP_LINEAR;

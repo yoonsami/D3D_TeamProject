@@ -8,6 +8,7 @@ public:
 
 	virtual HRESULT Init() override;
 	virtual void	Tick() override;
+	virtual shared_ptr<MonoBehaviour> Copy_Script()override { return make_shared<GroupEffectScript>(); }
 
 	/* Setter */
 	void			Set_GroupEffect();

@@ -40,6 +40,8 @@ void UiCoolEndEffect::Start_Effect()
         return;
 
     m_eState = STATE::START;
+    m_pOwner.lock()->Set_Tick(true);
+    m_pOwner.lock()->Set_Render(true);
     m_pOwner.lock()->Get_MeshRenderer()->Get_RenderParamDesc().floatParams[0] = 0.f;
     m_pOwner.lock()->Get_MeshRenderer()->Get_RenderParamDesc().floatParams[1] = -0.2f;
 }
@@ -63,6 +65,8 @@ void UiCoolEndEffect::Start()
 
 void UiCoolEndEffect::End()
 {
+    m_pOwner.lock()->Set_Tick(false);
+    m_pOwner.lock()->Set_Render(false);
     m_pOwner.lock()->Get_MeshRenderer()->Get_RenderParamDesc().floatParams[0] = 0.f;
     m_pOwner.lock()->Get_MeshRenderer()->Get_RenderParamDesc().floatParams[1] = 0.f;
 }

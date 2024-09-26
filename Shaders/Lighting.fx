@@ -16,6 +16,9 @@ float CalcShadowFactor(float4 shadowPosH)
   //NDC 공간 기준의 깊이 값
     float depth = shadowPosH.z;
 
+    if(uv.x < 0.f || uv.x > 1.f || uv.y <0.f || uv.y > 1.f)
+        return 1.f;
+    
     uint width, height, numMips;
     SubMap2.GetDimensions(0, width, height, numMips);
 
@@ -23,13 +26,23 @@ float CalcShadowFactor(float4 shadowPosH)
     float dx = 1.0f / (float) width;
 
     float percentLit = 0.0f;
+    
+        //const float2 offsets[25] =
+    //{
+    //    float2(-2.f, -2.f), float2(-1.f, -2.f), float2(0.f, -2.f), float2(1.f, -2.f), float2(2.f, -2.f),
+    //    float2(-2.f, -1.f), float2(-1.f, -1.f), float2(0.f, -1.f), float2(1.f, -1.f), float2(2.f, -1.f),
+    //    float2(-2.f, -0.f), float2(-1.f, -0.f), float2(0.f, -0.f), float2(1.f, -0.f), float2(2.f, -0.f),
+    //    float2(-2.f, +1.f), float2(-1.f, +1.f), float2(0.f, +1.f), float2(1.f, +1.f), float2(2.f, +1.f),
+    //    float2(-2.f, +2.f), float2(-1.f, +2.f), float2(0.f, +2.f), float2(1.f, +2.f), float2(2.f, +2.f)
+    //};
+    
     const float2 offsets[9] =
     {
-        float2(-dx, -dx), float2(0.0f, -dx), float2(dx, -dx),
+       float2(-dx, -dx), float2(0.0f, -dx), float2(dx, -dx),
     float2(-dx, 0.0f), float2(0.0f, 0.0f), float2(dx, 0.0f),
     float2(-dx, dx), float2(0.0f, dx), float2(dx, dx)
     };
-    depth -= g_ShadowBias;
+
   [unroll]
     for (int i = 0; i < 9; ++i)
     {  

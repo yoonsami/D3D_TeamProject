@@ -22,6 +22,8 @@ HRESULT UiSkillGauge::Init()
     if (true == m_pGaugeBg.expired())
         return E_FAIL;
 
+    m_pOwner.lock()->Set_Tick(false);
+    m_pGaugeBg.lock()->Set_Tick(false);
     m_pOwner.lock()->Set_Render(false);
     m_pGaugeBg.lock()->Set_Render(false);
     m_bIsRender = false;
@@ -60,6 +62,8 @@ void UiSkillGauge::Change_Render(_bool bSet, SkillInfo eInfo)
         return;
 
     m_bIsRender = bSet;
+    m_pOwner.lock()->Set_Tick(bSet);
+    m_pGaugeBg.lock()->Set_Tick(bSet);
     m_pOwner.lock()->Set_Render(bSet);
     m_pGaugeBg.lock()->Set_Render(bSet);
 

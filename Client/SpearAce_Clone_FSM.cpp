@@ -38,8 +38,7 @@ void SpearAce_Clone_FSM::State_Tick()
 		break;
 	}
 
-	if (!m_pGroupEffect.expired())
-		m_pGroupEffect.lock()->Get_Transform()->Set_WorldMat(Get_Transform()->Get_WorldMatrix());
+	Update_GroupEffectWorldPos(Get_Owner()->Get_Transform()->Get_WorldMatrix());
 
 	if (m_iPreFrame != m_iCurFrame)
 		m_iPreFrame = m_iCurFrame;
@@ -69,21 +68,21 @@ void SpearAce_Clone_FSM::State_Init()
 
 void SpearAce_Clone_FSM::Skill_Use()
 {
-	if (Get_CurFrame() > 70)
+	if (m_iCurFrame > 70)
 	{
 		shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 		animator->Set_RenderState(true);
 	}
-	if (Get_CurFrame() > 100)
+	if (m_iCurFrame > 100)
 	{
 		shared_ptr<GameObject> motionTrail = make_shared<GameObject>();
 		motionTrail->GetOrAddTransform()->Set_WorldMat(Get_Transform()->Get_WorldMatrix());
 		motionTrail->Add_Component(make_shared<MotionTrailRenderer>(RESOURCES.Get<Shader>(L"Shader_Model.fx"), Get_Owner()->Get_Animator()->Get_TweenDesc(), Get_Owner()->Get_Animator()->Get_Model()));
 		motionTrail->Add_Component(make_shared<MotionTrailDisappear>(1.5f, Color(0.2f, 0.5f, 4.f, 1.f)));
 		motionTrail->Get_Script<MotionTrailDisappear>()->Init();
-		CUR_SCENE->Add_GameObject(motionTrail);
+		EVENTMGR.Create_Object(motionTrail);
 
-		CUR_SCENE->Remove_GameObject(Get_Owner());
+		EVENTMGR.Delete_Object(Get_Owner());
 	}
 
 	if (Is_AnimFinished())

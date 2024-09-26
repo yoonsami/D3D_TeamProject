@@ -14,6 +14,8 @@ public:
 	_float GetAbsoluteTime()		{ return _float(m_dDeltaTime); }
 	void Set_TimeSlow(_float fDuration, _float fRatio) { m_fSlowDuration = fDuration; m_fTimeSpeedRatio = fRatio; }
 
+	_float Get_recipTimeRatio() { return 1.f / m_fTimeSpeedRatio; }
+
 private:
 	LARGE_INTEGER	m_liFrequency{};
 	LARGE_INTEGER	m_liPrevCount{};

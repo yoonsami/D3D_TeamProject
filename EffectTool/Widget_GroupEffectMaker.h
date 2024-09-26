@@ -42,8 +42,6 @@ private:
 	void	Delete();	// Delete GroupEffect GameObject in m_pCurrentGroup
 	void	Save(const string& wstrNewGroupTag = ".");
 
-	void	OwnerOnOff();
-
 private:
 	/* Group List */
 	_uint					m_iNumGroups = { 0 };

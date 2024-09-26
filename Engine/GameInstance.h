@@ -22,6 +22,7 @@ private:
 	Color	m_vClearColor	= { 0.5f,0.5f,0.5f,1.f };
 
 public:
-	
+	_float2 m_vMinMaxTessellationDistance = _float2(0.f);
+	_float2 m_vTest = _float2(0.f);
 };
 

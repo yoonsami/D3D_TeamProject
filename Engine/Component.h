@@ -26,6 +26,7 @@ enum class COMPONENT_TYPE : _uchar
 	EffectController,
 	MotionTrailRenderer,
 	DistortionRenderer,
+	TerrainRenderer,
 	Script,
 	End,
 };

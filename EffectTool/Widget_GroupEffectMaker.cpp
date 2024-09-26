@@ -3,6 +3,7 @@
 
 #include "GameObject.h"
 #include "GroupEffect.h"
+#include "Camera.h"
 
 bool VectorOfStringGetter2(void* data, int n, const char** out_text)
 {
@@ -277,9 +278,6 @@ void Widget_GroupEffectMaker::Widget_GroupMaker()
 		if (ImGui::Button("Reset Scene"))
 			Delete();
 
-		if (ImGui::Button("Owner On/Off"))	
-			OwnerOnOff();
-
 		ImGui::EndChild();
 	}
 }
@@ -304,7 +302,7 @@ void Widget_GroupEffectMaker::Widget_GetTag()
 void Widget_GroupEffectMaker::Widget_AddMeshEffect()
 {
 	// Mesh Effect ComboBox
-	if (ImGui::BeginCombo("Mesh Effect##GroupEffect", m_pszMeshEffects[m_iMeshEffect], 0))
+	if (ImGui::BeginCombo("Mesh Effect##GroupEffect", m_pszMeshEffects[m_iMeshEffect], ImGuiComboFlags_HeightLargest))
 	{
 		for (_uint n = 0; n < m_iNumMeshEffects; n++)
 		{
@@ -377,7 +375,7 @@ void Widget_GroupEffectMaker::Option_GroupList()
 		2. Create GroupEffect GameObject with selected group tag */
 
 	ImGui::Text("Group List");
-	if(ImGui::BeginCombo("##GroupEffectList", m_pszGroups[m_iGroup], 0))
+	if(ImGui::BeginCombo("##GroupEffectList", m_pszGroups[m_iGroup], ImGuiComboFlags_HeightLargest))
 	{
 		for (_uint n = 0; n < m_iNumGroups; n++)
 		{
@@ -418,8 +416,12 @@ void Widget_GroupEffectMaker::Option_MemberEffectList()
 		string strFloatKey = "Start time##" + strIndex + ": " + iter;
 		string strFloat3Key1 = "Translation##" + strIndex + ": " + iter;
 		string strFloat3Key2 = "Scale##" + strIndex + ": " + iter;
-		string strFloat3Key3 = "Rotation##" + strIndex + ": " + iter;
+		string strFloat3Key3_x = "Rotation X(radian)##" + strIndex + ": " + iter;
+		string strFloat3Key3_y = "Rotation Y(radian)##" + strIndex + ": " + iter;
+		string strFloat3Key3_z = "Rotation Z(radian)##" + strIndex + ": " + iter;
 		string strDeleteButton = "Delete##" + strIndex + ": " + iter;
+		string strUpButton = "Up##" + strIndex + ": " + iter;
+		string strDownButton = "Down##" + strIndex + ": " + iter;
 
 		if(ImGui::TreeNode(strTreeNodeKey.c_str()))
 		{ 
@@ -437,17 +439,71 @@ void Widget_GroupEffectMaker::Option_MemberEffectList()
 				_float3 vScale = { m_tCurrMemberProperty[iIndex].m_fScale[0], m_tCurrMemberProperty[iIndex].m_fScale[1], m_tCurrMemberProperty[iIndex].m_fScale[2] };
 				m_pCurrentGroup->Get_GroupEffect()->Set_Member_PivotScale(iIndex, vScale);
 			}
-			if (ImGui::InputFloat3(strFloat3Key3.c_str(), m_tCurrMemberProperty[iIndex].m_fRotation))
+			if (ImGui::InputFloat(strFloat3Key3_x.c_str(), &m_tCurrMemberProperty[iIndex].m_fRotation[0]))
 			{
+				m_tCurrMemberProperty[iIndex].m_fRotation[0] = m_tCurrMemberProperty[iIndex].m_fRotation[0] * (XM_PI / 180.f);
+
 				_float3 vRotation = { m_tCurrMemberProperty[iIndex].m_fRotation[0], m_tCurrMemberProperty[iIndex].m_fRotation[1], m_tCurrMemberProperty[iIndex].m_fRotation[2] };
 				m_pCurrentGroup->Get_GroupEffect()->Set_Member_PivotRotation(iIndex, vRotation);
 			}
+			if (ImGui::InputFloat(strFloat3Key3_y.c_str(), &m_tCurrMemberProperty[iIndex].m_fRotation[1]))
+			{
+				m_tCurrMemberProperty[iIndex].m_fRotation[1] = m_tCurrMemberProperty[iIndex].m_fRotation[1] * (XM_PI / 180.f);
+
+				_float3 vRotation = { m_tCurrMemberProperty[iIndex].m_fRotation[0], m_tCurrMemberProperty[iIndex].m_fRotation[1], m_tCurrMemberProperty[iIndex].m_fRotation[2] };
+				m_pCurrentGroup->Get_GroupEffect()->Set_Member_PivotRotation(iIndex, vRotation);
+			}
+			if (ImGui::InputFloat(strFloat3Key3_z.c_str(), &m_tCurrMemberProperty[iIndex].m_fRotation[2]))
+			{
+				m_tCurrMemberProperty[iIndex].m_fRotation[2] = m_tCurrMemberProperty[iIndex].m_fRotation[2] * (XM_PI / 180.f);
+
+				_float3 vRotation = { m_tCurrMemberProperty[iIndex].m_fRotation[0], m_tCurrMemberProperty[iIndex].m_fRotation[1], m_tCurrMemberProperty[iIndex].m_fRotation[2] };
+				m_pCurrentGroup->Get_GroupEffect()->Set_Member_PivotRotation(iIndex, vRotation);
+			}
+
+			if (iIndex > 0)
+			{
+				if (ImGui::Button(strUpButton.c_str()))
+				{
+					_int iPrevIndex = iIndex - 1;
+
+					// GroupEffect의 m_vMemberEffectData에서 순서 바꾸기 
+					GroupEffectData::MemberEffect_Desc m_tTemp_i = m_pCurrentGroup->Get_GroupEffect()->Get_MemberEffectData_index(iIndex);
+					GroupEffectData::MemberEffect_Desc m_tTemp_iPrev = m_pCurrentGroup->Get_GroupEffect()->Get_MemberEffectData_index(iPrevIndex);
+					m_pCurrentGroup->Get_GroupEffect()->Set_MemberEffectData_index(iIndex, m_tTemp_iPrev);
+					m_pCurrentGroup->Get_GroupEffect()->Set_MemberEffectData_index(iPrevIndex, m_tTemp_i);
+
+					// m_tCurrMemberProperty에서 순서 바꾸기 또는 memberlist 리로드하기 
+					Set_MemberEffectList();
+				}
+				ImGui::SameLine();
+			}
+			if (iIndex < _int(m_iNumMeshEffects - 1))
+			{
+				if (ImGui::Button(strDownButton.c_str()))
+				{
+					_int iNextIndex = iIndex + 1;
+
+					// GroupEffect의 m_vMemberEffectData에서 순서 바꾸기 
+					GroupEffectData::MemberEffect_Desc m_tTemp_i = m_pCurrentGroup->Get_GroupEffect()->Get_MemberEffectData_index(iIndex);
+					GroupEffectData::MemberEffect_Desc m_tTemp_iPrev = m_pCurrentGroup->Get_GroupEffect()->Get_MemberEffectData_index(iNextIndex);
+					m_pCurrentGroup->Get_GroupEffect()->Set_MemberEffectData_index(iIndex, m_tTemp_iPrev);
+					m_pCurrentGroup->Get_GroupEffect()->Set_MemberEffectData_index(iNextIndex, m_tTemp_i);
+
+					// m_tCurrMemberProperty에서 순서 바꾸기 또는 memberlist 리로드하기 
+					Set_MemberEffectList();
+				}
+				ImGui::SameLine();
+			}
 			if (ImGui::Button(strDeleteButton.c_str()))
 			{
-				m_pCurrentGroup->Get_GroupEffect()->DeleteMember(Utils::ToWString(iter));
+				if(nullptr != m_pCurrentGroup)
+					m_pCurrentGroup->Get_GroupEffect()->DeleteMember(Utils::ToWString(iter));
 				string strFilePath = "..\\Resources\\EffectData\\GroupEffectData\\";
 				strFilePath += (m_strGroup + ".dat");
+
 				Save();
+
 				RESOURCES.ReloadOrAddGroupEffectData(Utils::ToWString(m_strGroup), Utils::ToWString(strFilePath));
 				Set_MemberEffectList();
 			}
@@ -506,13 +562,14 @@ void Widget_GroupEffectMaker::Create()
 {
 	/* Get GroupEffectData gameObject if resource manager already has GroupEffectData
 	  if it does not, add new GroupEffectData to resource manager and get */
-
 	// Erase prev created loop mesh effect 
 	if (nullptr != m_pCurrentGroup)
 		m_pCurrentGroup->Get_GroupEffect()->FreeLoopMember();
 
 	if ("None" == m_strGroup)
 		return;	
+
+	CUR_SCENE->Get_Camera(L"Default")->Get_Camera()->Set_EffectToolOn(false);
 
 	shared_ptr<GameObject> pGroupEffectObj = make_shared<GameObject>();
 	
@@ -524,9 +581,7 @@ void Widget_GroupEffectMaker::Create()
 		pGroupEffectObj->Get_Transform()->Set_WorldMat(mModelWorldMatrix);
 	}
 	else
-	{
 		pGroupEffectObj->Get_Transform()->Set_WorldMat(XMMatrixIdentity());
-	}
 
 	// For. GroupEffectData 
 	wstring wstrFileName = Utils::ToWString(m_strGroup) + L".dat";
@@ -539,12 +594,13 @@ void Widget_GroupEffectMaker::Create()
 	pGroupEffectObj->Get_GroupEffect()->Set_Tag(pGroupEffectData->Get_GroupEffectDataTag());
 	pGroupEffectObj->Get_GroupEffect()->Set_MemberEffectData(pGroupEffectData->Get_MemberEffectData());
 	pGroupEffectObj->Get_GroupEffect()->Set_InitWorldMatrix(pGroupEffectObj->Get_Transform()->Get_WorldMatrix());
-
+	pGroupEffectObj->Get_GroupEffect()->Set_MemberEffectMaterials();
+	pGroupEffectObj->Init();
 	// For. bind to member 
 	m_pCurrentGroup = pGroupEffectObj;
 
 	// For. Add Effect GameObject to current scene
-	CUR_SCENE->Add_GameObject(pGroupEffectObj);
+	EVENTMGR.Create_Object(pGroupEffectObj);
 }
 
 void Widget_GroupEffectMaker::Delete()
@@ -552,7 +608,7 @@ void Widget_GroupEffectMaker::Delete()
 	if (nullptr != m_pCurrentGroup)
 	{
 		m_pCurrentGroup->Get_GroupEffect()->FreeLoopMember();
-		CUR_SCENE->Remove_GameObject(m_pCurrentGroup);
+		EVENTMGR.Delete_Object(m_pCurrentGroup);
 		m_pCurrentGroup = nullptr;
 	}
 }
@@ -584,25 +640,10 @@ void Widget_GroupEffectMaker::Save(const string& wstrNewGroupTag)
 
 		Set_MemberEffectList();
 		m_pCurrentGroup->Get_GroupEffect()->Set_MemberEffectData(vNewGroupEffectData);
-	}
-}
-
-void Widget_GroupEffectMaker::OwnerOnOff()
-{
-	// On Owner
-	if (nullptr != m_pOwner)
-	{
-		shared_ptr<GameObject> pOwnerObj = make_shared<GameObject>();
-
-		pOwnerObj->GetOrAddTransform();
-		pOwnerObj->Get_Transform()->Set_State(Transform_State::POS, _float4(0.f, 1.f, 0.f, 1.f));
-
-
+		m_pCurrentGroup->Get_GroupEffect()->Init();
 	}
 
-	// Off Owner
-	else
-	{
-
-	}
+	// Delete prev group effect and create new group effect which has updated info 
+	Delete();
+	Create();
 }

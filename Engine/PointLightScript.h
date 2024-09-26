@@ -39,7 +39,7 @@ public:
     void Set_Speed(_float _fEffectSpeed) { m_fEffectSpeed = _fEffectSpeed; }
     void Set_DeltaTime(_float _fDeltaTime) { m_fDeltaTime = _fDeltaTime; }
     void Set_DeltaPM(_float _fDeltaPM) { m_fDeltaPM = _fDeltaPM; }
-
+    virtual shared_ptr<MonoBehaviour> Copy_Script() { return make_shared<PointLightScript>(); }
 private:
     _bool m_bUseEffect = { false };
     _float4 m_AmbientStartColor = { 1.f, 1.f, 1.f, 1.f };

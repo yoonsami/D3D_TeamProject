@@ -6,7 +6,8 @@
 #include "MainCameraScript.h"
 #include "UiDamageCreate.h"
 #include "UiMonsterHp.h"
-
+#include "ObjectDissolve.h"
+#include "CharacterController.h"
 
 HRESULT Wolf_FSM::Init()
 {
@@ -26,7 +27,7 @@ HRESULT Wolf_FSM::Init()
 
         m_pAttackCollider = attackCollider;
 
-        CUR_SCENE->Add_GameObject(m_pAttackCollider.lock());
+        EVENTMGR.Create_Object(m_pAttackCollider.lock());
         m_pAttackCollider.lock()->Get_Collider()->Set_Activate(false);
 
         m_pAttackCollider.lock()->Add_Component(make_shared<AttackColliderInfoScript>());
@@ -41,7 +42,7 @@ HRESULT Wolf_FSM::Init()
 
         m_fNormalAttack_AnimationSpeed = 1.f;
         m_fSkillAttack_AnimationSpeed = 1.f;
-        m_fDetectRange = 10.f;
+        m_fDetectRange = 15.f;
 
 
         m_bInitialize = true;
@@ -52,6 +53,8 @@ HRESULT Wolf_FSM::Init()
 
 void Wolf_FSM::Tick()
 {
+    DeadCheck();
+
     State_Tick();
 
     if (!m_pAttackCollider.expired())
@@ -63,10 +66,14 @@ void Wolf_FSM::Tick()
 
 void Wolf_FSM::State_Tick()
 {
+    Detect_Target();
+
+    Target_DeadCheck();
+
     State_Init();
 
     m_iCurFrame = Get_CurFrame();
-
+    Recovery_Color();
     switch (m_eCurState)
     {
     case STATE::b_idle:
@@ -81,8 +88,11 @@ void Wolf_FSM::State_Tick()
     case STATE::n_run:
         n_run();
         break;
-    case STATE::die:
-        die();
+    case STATE::die_01:
+        die_01();
+        break;
+    case STATE::die_02:
+        die_02();
         break;
     case STATE::gaze_b:
         gaze_b();
@@ -134,8 +144,7 @@ void Wolf_FSM::State_Tick()
         break;
     }
 
-    if (!m_pGroupEffect.expired())
-        m_pGroupEffect.lock()->Get_Transform()->Set_WorldMat(Get_Transform()->Get_WorldMatrix());
+    Update_GroupEffectWorldPos(Get_Owner()->Get_Transform()->Get_WorldMatrix());
 
     if (m_iPreFrame != m_iCurFrame)
         m_iPreFrame = m_iCurFrame;
@@ -159,8 +168,11 @@ void Wolf_FSM::State_Init()
         case STATE::n_run:
             n_run_Init();
             break;
-        case STATE::die:
-            die_Init();
+        case STATE::die_01:
+            die_01_Init();
+            break;
+        case STATE::die_02:
+            die_02_Init();
             break;
         case STATE::gaze_b:
             gaze_b_Init();
@@ -215,44 +227,8 @@ void Wolf_FSM::State_Init()
     }
 }
 
-void Wolf_FSM::OnCollision(shared_ptr<BaseCollider> pCollider, _float fGap)
+void Wolf_FSM::Get_Hit(const wstring& skillname, _float fDamage, shared_ptr<GameObject> pLookTarget)
 {
-}
-
-void Wolf_FSM::OnCollisionEnter(shared_ptr<BaseCollider> pCollider, _float fGap)
-{
-    if (pCollider->Get_Owner() == nullptr)
-        return;
-
-    if (!pCollider->Get_Owner()->Get_Script<AttackColliderInfoScript>())
-        return;
-
-    wstring strSkillName = pCollider->Get_Owner()->Get_Script<AttackColliderInfoScript>()->Get_SkillName();
-
-    if (!m_bInvincible)
-    {
-        shared_ptr<GameObject> targetToLook = nullptr;
-
-        if (strSkillName.find(L"_Skill") != wstring::npos)
-            targetToLook = pCollider->Get_Owner();
-        else
-            targetToLook = pCollider->Get_Owner()->Get_Script<AttackColliderInfoScript>()->Get_ColliderOwner();
-
-        if (targetToLook == nullptr)
-            return;
-
-        Get_Hit(strSkillName, targetToLook);
-    }
-}
-
-void Wolf_FSM::OnCollisionExit(shared_ptr<BaseCollider> pCollider, _float fGap)
-{
-}
-
-void Wolf_FSM::Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookTarget)
-{
-    CUR_SCENE->Get_UI(L"UI_Damage_Controller")->Get_Script<UiDamageCreate>()->Create_Damage_Font(Get_Owner());
-
     auto pScript = m_pOwner.lock()->Get_Script<UiMonsterHp>();
     if (nullptr == pScript)
     {
@@ -260,6 +236,15 @@ void Wolf_FSM::Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookTar
         m_pOwner.lock()->Add_Component(pScript);
         pScript->Init();
     }
+
+    //Calculate Damage 
+    m_pOwner.lock()->Get_Hurt(fDamage);
+
+    CUR_SCENE->Get_UI(L"UI_Damage_Controller")->Get_Script<UiDamageCreate>()->Create_Damage_Font(Get_Owner(), fDamage);
+
+    //Target Change
+    if (pLookTarget != nullptr)
+        m_pTarget = pLookTarget;
 
     m_bDetected = true;
     m_pCamera.lock()->Get_Script<MainCameraScript>()->ShakeCamera(0.1f, 0.05f);
@@ -269,6 +254,7 @@ void Wolf_FSM::Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookTar
     m_vHitDir = vOppositePos - vMyPos;
     m_vHitDir.y = 0.f;
     m_vHitDir.Normalize();
+	Set_HitColor();
 
     if (skillname == NORMAL_ATTACK || skillname == NORMAL_SKILL)
     {
@@ -320,25 +306,6 @@ void Wolf_FSM::Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookTar
                 m_eCurState = STATE::airborne_start;
         }
     }
-
-}
-
-void Wolf_FSM::AttackCollider_On(const wstring& skillname)
-{
-    if (!m_pAttackCollider.expired())
-    {
-        m_pAttackCollider.lock()->Get_Collider()->Set_Activate(true);
-        m_pAttackCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_SkillName(skillname);
-    }
-}
-
-void Wolf_FSM::AttackCollider_Off()
-{
-    if (!m_pAttackCollider.expired())
-    {
-        m_pAttackCollider.lock()->Get_Collider()->Set_Activate(false);
-        m_pAttackCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_SkillName(L"");
-    }
 }
 
 void Wolf_FSM::Set_State(_uint iIndex)
@@ -355,9 +322,6 @@ void Wolf_FSM::b_idle()
         {
             m_eCurState = STATE::n_run;
         }
-
-        if (Target_In_DetectRange())
-            m_bDetected = true;
     }
     else
     {
@@ -366,6 +330,8 @@ void Wolf_FSM::b_idle()
         else
             m_eCurState = STATE::b_run;
     }
+
+    Dead_Setting();
 }
 
 void Wolf_FSM::b_idle_Init()
@@ -403,6 +369,7 @@ void Wolf_FSM::b_run_Init()
     Get_Transform()->Set_Speed(m_fRunSpeed);
 
     m_bSuperArmor = false;
+    m_bInvincible = false;
 }
 
 void Wolf_FSM::n_idle()
@@ -415,9 +382,6 @@ void Wolf_FSM::n_idle()
         {
             m_eCurState = STATE::n_run;
         }
-
-        if (Target_In_DetectRange())
-            m_bDetected = true;
     }
     else
     {
@@ -462,9 +426,6 @@ void Wolf_FSM::n_run()
         m_eCurState = STATE::n_idle;
     }
 
-    if (Target_In_DetectRange())
-        m_bDetected = true;
-
     if (m_bDetected)
     {
         m_eCurState = STATE::b_run;
@@ -485,12 +446,50 @@ void Wolf_FSM::n_run_Init()
     m_bSuperArmor = false;
 }
 
-void Wolf_FSM::die()
+void Wolf_FSM::die_01()
 {
+    if (Is_AnimFinished())
+    {
+        auto script = make_shared<ObjectDissolve>(1.f);
+        Get_Owner()->Add_Component(script);
+        script->Init();
+
+        if (!m_pAttackCollider.expired())
+            EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+    }
 }
 
-void Wolf_FSM::die_Init()
+void Wolf_FSM::die_01_Init()
 {
+    shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
+
+    animator->Set_NextTweenAnim(L"die_01", 0.2f, false, 1.f);
+
+    m_bSuperArmor = false;
+    m_bInvincible = true;
+}
+
+void Wolf_FSM::die_02()
+{
+    if (Is_AnimFinished())
+    {
+        auto script = make_shared<ObjectDissolve>(1.f);
+        Get_Owner()->Add_Component(script);
+        script->Init();
+
+        if (!m_pAttackCollider.expired())
+            EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+    }
+}
+
+void Wolf_FSM::die_02_Init()
+{
+    shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
+
+    animator->Set_NextTweenAnim(L"die_02", 0.2f, false, 1.f);
+
+    m_bSuperArmor = false;
+    m_bInvincible = true;
 }
 
 void Wolf_FSM::gaze_b()
@@ -509,6 +508,7 @@ void Wolf_FSM::gaze_b()
         else
             m_eCurState = STATE::b_run;
     }
+
 }
 
 void Wolf_FSM::gaze_b_Init()
@@ -538,6 +538,7 @@ void Wolf_FSM::gaze_f()
         else
             m_eCurState = STATE::b_run;
     }
+
 }
 
 void Wolf_FSM::gaze_f_Init()
@@ -626,12 +627,30 @@ void Wolf_FSM::airborne_start_Init()
     AttackCollider_Off();
 
     m_bSuperArmor = true;
+
+    Get_CharacterController()->Add_Velocity(5.f);
 }
 
 void Wolf_FSM::airborne_end()
 {
     if (Is_AnimFinished())
-        m_eCurState = STATE::airborne_up;
+    {
+        if (!m_bIsDead)
+            m_eCurState = STATE::airborne_up;
+        else
+        {
+            m_bInvincible = true;
+
+            Get_Owner()->Get_Animator()->Set_AnimState(true);
+
+            auto script = make_shared<ObjectDissolve>(1.f);
+            Get_Owner()->Add_Component(script);
+            script->Init();
+
+            if (!m_pAttackCollider.expired())
+                EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+        }
+    }
 }
 
 void Wolf_FSM::airborne_end_Init()
@@ -664,6 +683,8 @@ void Wolf_FSM::hit()
 
     if (Is_AnimFinished())
         m_eCurState = STATE::b_idle;
+
+    Dead_Setting();
 }
 
 void Wolf_FSM::hit_Init()
@@ -700,7 +721,7 @@ void Wolf_FSM::knock_start_Init()
 
 void Wolf_FSM::knock_end()
 {
-    if (Get_CurFrame() < 13)
+    if (m_iCurFrame < 13)
         Get_Transform()->Go_Backward();
 
     if (Is_AnimFinished())
@@ -718,8 +739,22 @@ void Wolf_FSM::knock_end_Init()
 
 void Wolf_FSM::knock_end_loop()
 {
-    if (Get_CurFrame() > Get_FinalFrame() / 2)
+    if (m_iCurFrame > Get_FinalFrame() / 2)
         m_eCurState = STATE::knock_up;
+
+    if (m_bIsDead)
+    {
+        m_bInvincible = true;
+
+        Get_Owner()->Get_Animator()->Set_AnimState(true);
+
+        auto script = make_shared<ObjectDissolve>(1.f);
+        Get_Owner()->Add_Component(script);
+        script->Init();
+
+        if (!m_pAttackCollider.expired())
+            EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+    }
 }
 
 void Wolf_FSM::knock_end_loop_Init()
@@ -735,6 +770,9 @@ void Wolf_FSM::knock_end_hit()
 {
     if (Is_AnimFinished())
         m_eCurState = STATE::knock_end_loop;
+    
+    if (m_bIsDead)
+        m_bInvincible = true;
 }
 
 void Wolf_FSM::knock_end_hit_Init()
@@ -788,11 +826,27 @@ void Wolf_FSM::knockdown_start_Init()
 
 void Wolf_FSM::knockdown_end()
 {
-    if (Get_CurFrame() < 16)
+    if (m_iCurFrame < 16)
         Get_Transform()->Go_Backward();
 
     if (Is_AnimFinished())
-        m_eCurState = STATE::knock_up;
+    {
+        if (!m_bIsDead)
+            m_eCurState = STATE::knock_up;
+        else
+        {
+            m_bInvincible = true;
+
+            Get_Owner()->Get_Animator()->Set_AnimState(true);
+
+            auto script = make_shared<ObjectDissolve>(1.f);
+            Get_Owner()->Add_Component(script);
+            script->Init();
+
+            if (!m_pAttackCollider.expired())
+                EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+        }
+    }
 }
 
 void Wolf_FSM::knockdown_end_Init()
@@ -811,9 +865,9 @@ void Wolf_FSM::skill_1100()
     if (m_vTurnVector != _float3(0.f))
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
-    if (Get_CurFrame() == 10)
-        AttackCollider_On(NONE_HIT);
-    else if (Get_CurFrame() == 18)
+    if (m_iCurFrame == 10)
+        AttackCollider_On(NONE_HIT, 2.f);
+    else if (m_iCurFrame == 18)
         AttackCollider_Off();
 
     Set_Gaze();
@@ -855,9 +909,9 @@ void Wolf_FSM::Set_Gaze()
         _uint iRan = 0;
 
         if (Target_In_AttackRange())
-            iRan = rand() % 3;
-        else
             iRan = rand() % 4;
+        else
+            iRan = rand() % 5;
 
         if (iRan == 0)
             m_eCurState = STATE::gaze_b;
@@ -866,7 +920,58 @@ void Wolf_FSM::Set_Gaze()
         else if (iRan == 2)
             m_eCurState = STATE::gaze_r;
         else if (iRan == 3)
+            m_eCurState = STATE::b_idle;
+        else if (iRan == 4)
             m_eCurState = STATE::gaze_f;
+    }
+}
+
+void Wolf_FSM::Dead_Setting()
+{
+    if (m_bIsDead)
+    {
+        m_bInvincible = true;
+
+        if (rand() % 2 == 0)
+            m_eCurState = STATE::die_01;
+        else
+            m_eCurState = STATE::die_02;
+    }
+}
+
+void Wolf_FSM::Detect_Target()
+{
+    if (!m_bDetected)
+    {
+        m_tDetectCoolTime.fAccTime += fDT;
+
+        if (m_tDetectCoolTime.fAccTime >= m_tDetectCoolTime.fCoolTime)
+        {
+            m_tDetectCoolTime.fAccTime = 0.f;
+
+            if (TargetGroup_In_DetectRange(OBJ_TEAM))
+                m_bDetected = true;
+        }
+    }
+}
+
+void Wolf_FSM::Target_DeadCheck()
+{
+    if (m_bDetected)
+    {
+        if (!m_pTarget.expired())
+        {
+            if (m_pTarget.lock()->Get_CurHp() <= 0.f)
+            {
+                m_bDetected = false;
+                m_eCurState = STATE::b_idle;
+            }
+        }
+        else
+        {
+            m_bDetected = false;
+            m_eCurState = STATE::b_idle;
+        }
     }
 }
 

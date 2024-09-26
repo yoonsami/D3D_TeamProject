@@ -52,6 +52,30 @@ VS_OUT VS_3D_To_2D(VTXMesh input)
     return output;
 }
 
+MeshOutput VS_Grass(VTXMesh input)
+{
+    MeshOutput output;
+    output.position = float4(input.position, 1.f);
+    output.uv = input.uv;
+    output.worldPosition = mul(float4(input.position, 1.f), W).xyz;
+    output.viewPosition = mul(float4(output.worldPosition, 1.f), V).xyz;
+    output.viewNormal = mul(float4(input.normal, 0.f), V).xyz;
+    output.viewTangent = mul(float4(input.tangent, 0.f), V).xyz;
+    
+    return output;
+}
+
+VS_OUT VS_ViewPort(VTXMesh input)
+{    
+    VS_OUT output;
+    float3 worldPos = mul(float4(input.position, 1.f), W).xyz;
+    output.viewPos = mul(float4(worldPos, 1.f), V);
+
+    output.uv = input.uv;
+
+    return output;
+}
+
 UIInstancingOutput VS_Instancing(VTXMeshInstancing input)
 {
     UIInstancingOutput output;
@@ -70,6 +94,7 @@ struct GS_OUTPUT
     float3 viewTangent : TANGENT;
     float3 viewPos : POSITION1;
 };
+
 //g_int_0 spriteCountX
 //g_int_1 spriteCountY
 //g_vec2_0 curtime,lifetime
@@ -78,6 +103,18 @@ struct GS_OUTPUT
 //g_vec4_0.y > 0.5f = Sprited
 //g_vec4_0.z = dissolveSpeed
 //g_vec4_0.w = MaintainTime
+
+//g_vec4_0 - TerrainBrushPos
+//g_float_0 - TerrainBrushRadius
+
+struct GS_GRASS_OUTPUT
+{
+    float4 position : SV_POSITION;
+    float3 viewPosition : POSITION2;
+    float2 uv : TEXCOORD;
+    float3 viewNormal : NORMAL;
+    float3 viewTangent : TANGENT;
+};
 
 [maxvertexcount(6)]
 void GS_Main(point VS_OUT input[1], inout TriangleStream<GS_OUTPUT> outputStream)
@@ -97,7 +134,7 @@ void GS_Main(point VS_OUT input[1], inout TriangleStream<GS_OUTPUT> outputStream
     VS_OUT vtx = input[0];
     float2 scale = mscale.xy * 0.5f;
 
-    output[0].position = vtx.viewPos + float4(-scale.x, scale.y, 0.f, 0.f);
+    output[0].position = vtx.viewPos +float4(-scale.x, scale.y, 0.f, 0.f);
     output[1].position = vtx.viewPos + float4(scale.x, scale.y, 0.f, 0.f);
     output[2].position = vtx.viewPos + float4(scale.x, -scale.y, 0.f, 0.f);
     output[3].position = vtx.viewPos + float4(-scale.x, -scale.y, 0.f, 0.f);
@@ -133,6 +170,96 @@ void GS_Main(point VS_OUT input[1], inout TriangleStream<GS_OUTPUT> outputStream
     outputStream.RestartStrip();
 }
 
+// 회전행렬 생성
+float4x4 RotateMatrix(float angle, float3 axis)
+{
+    float s = sin(angle);
+    float c = cos(angle);
+    float oneMinusC = 1.0 - c;
+
+    float3 sq = axis * axis;
+    float3x3 rotationMatrix = float3x3(
+        sq.x * oneMinusC + c,
+        axis.x * axis.y * oneMinusC + axis.z * s,
+        axis.x * axis.z * oneMinusC - axis.y * s,
+
+        axis.x * axis.y * oneMinusC - axis.z * s,
+        sq.y * oneMinusC + c,
+        axis.y * axis.z * oneMinusC + axis.x * s,
+
+        axis.x * axis.z * oneMinusC + axis.y * s,
+        axis.y * axis.z * oneMinusC - axis.x * s,
+        sq.z * oneMinusC + c
+    );
+    
+    return float4x4(
+        float4(rotationMatrix[0], 0),
+        float4(rotationMatrix[1], 0),
+        float4(rotationMatrix[2], 0),
+        float4(0, 0, 0, 1)
+    );
+}
+
+[maxvertexcount(18)]
+void GS_Grass(point MeshOutput input[1], inout TriangleStream<GS_GRASS_OUTPUT> outputStream)
+{
+    const uint vertexCount = 4;
+    const uint billboardCount = 3;
+    GS_GRASS_OUTPUT output[vertexCount * billboardCount] =
+    {
+        (GS_GRASS_OUTPUT) 0.f, (GS_GRASS_OUTPUT) 0.f, (GS_GRASS_OUTPUT) 0.f, (GS_GRASS_OUTPUT) 0.f,
+        (GS_GRASS_OUTPUT) 0.f, (GS_GRASS_OUTPUT) 0.f, (GS_GRASS_OUTPUT) 0.f, (GS_GRASS_OUTPUT) 0.f,
+        (GS_GRASS_OUTPUT) 0.f, (GS_GRASS_OUTPUT) 0.f, (GS_GRASS_OUTPUT) 0.f, (GS_GRASS_OUTPUT) 0.f
+    };
+    
+    for (uint j = 0; j < billboardCount; j++)
+    {
+        float4x4 matRotateByBillboard = RotateMatrix(radians(120.f * j), float3(0.f, 1.f, 0.f));
+        float4x4 RotateWByBillboard = mul(matRotateByBillboard, W);
+        MeshOutput vtx = input[0];
+        
+        output[j * 4 + 0].position = float4(vtx.position.xyz/*포지션*/ + matRotateByBillboard[2].xyz * 0.1f /*삼각편대*/ - matRotateByBillboard[0].xyz * 0.5f + matRotateByBillboard[1].xyz * 0.5f/*사각형을위한점위치*/ + matRotateByBillboard[1].xyz * 0.5f/*높이*/, 1.f);
+        output[j * 4 + 1].position = float4(vtx.position.xyz/*포지션*/ + matRotateByBillboard[2].xyz * 0.1f /*삼각편대*/ + matRotateByBillboard[0].xyz * 0.5f + matRotateByBillboard[1].xyz * 0.5f/*사각형을위한점위치*/ + matRotateByBillboard[1].xyz * 0.5f/*높이*/, 1.f);
+        output[j * 4 + 2].position = float4(vtx.position.xyz/*포지션*/ + matRotateByBillboard[2].xyz * 0.1f /*삼각편대*/ + matRotateByBillboard[0].xyz * 0.5f - matRotateByBillboard[1].xyz * 0.5f/*사각형을위한점위치*/ + matRotateByBillboard[1].xyz * 0.5f/*높이*/, 1.f);
+        output[j * 4 + 3].position = float4(vtx.position.xyz/*포지션*/ + matRotateByBillboard[2].xyz * 0.1f /*삼각편대*/ - matRotateByBillboard[0].xyz * 0.5f - matRotateByBillboard[1].xyz * 0.5f/*사각형을위한점위치*/ + matRotateByBillboard[1].xyz * 0.5f/*높이*/, 1.f);
+        
+        output[j * 4 + 0].uv = float2(0.f, 0.f);
+        output[j * 4 + 1].uv = float2(1.f, 0.f);
+        output[j * 4 + 2].uv = float2(1.f, 1.f);
+        output[j * 4 + 3].uv = float2(0.f, 1.f);
+    
+        output[j * 4 + 0].viewPosition = mul(output[j * 4 + 0].position, mul(W,V));
+        output[j * 4 + 1].viewPosition = mul(output[j * 4 + 1].position, mul(W,V));
+        output[j * 4 + 2].viewPosition = mul(output[j * 4 + 2].position, mul(W,V));
+        output[j * 4 + 3].viewPosition = mul(output[j * 4 + 3].position, mul(W, V));
+
+    // proj q
+        output[j * 4 + 0].position = mul(float4(output[j * 4 + 0].viewPosition, 1.f), P);
+        output[j * 4 + 1].position = mul(float4(output[j * 4 + 1].viewPosition, 1.f), P);
+        output[j * 4 + 2].position = mul(float4(output[j * 4 + 2].viewPosition, 1.f), P);
+        output[j * 4 + 3].position = mul(float4(output[j * 4 + 3].viewPosition, 1.f), P);
+        
+        output[j * 4 + 0].viewNormal = mul(RotateWByBillboard[2], V).xyz;
+        output[j * 4 + 1].viewNormal = mul(RotateWByBillboard[2], V).xyz;
+        output[j * 4 + 2].viewNormal = mul(RotateWByBillboard[2], V).xyz;
+        output[j * 4 + 3].viewNormal = mul(RotateWByBillboard[2], V).xyz;
+        
+        output[j * 4 + 0].viewTangent = mul(RotateWByBillboard[0], V).xyz;
+        output[j * 4 + 1].viewTangent = mul(RotateWByBillboard[0], V).xyz;
+        output[j * 4 + 2].viewTangent = mul(RotateWByBillboard[0], V).xyz;
+        output[j * 4 + 3].viewTangent = mul(RotateWByBillboard[0], V).xyz;
+
+        outputStream.Append(output[j * 4 + 0]);
+        outputStream.Append(output[j * 4 + 1]);
+        outputStream.Append(output[j * 4 + 2]);
+        outputStream.RestartStrip();
+
+        outputStream.Append(output[j * 4 + 0]);
+        outputStream.Append(output[j * 4 + 2]);
+        outputStream.Append(output[j * 4 + 3]);
+        outputStream.RestartStrip();
+    }
+}
 
 [maxvertexcount(6)]
 void GS_Sprite(point VS_OUT input[1], inout TriangleStream<GS_OUTPUT> outputStream)
@@ -267,8 +394,11 @@ float4 PS_UI1(UIOutput input) : SV_TARGET
         if (1.f - input.uv.y >= g_float_0 / 100.f)
             diffuseColor.xyz *= 0.2f;
 
-        float gauge_Color = SubMap0.Sample(LinearSampler, input.uv + float2(0.f, 0.5f + g_float_0 / 100.f)).x;
-        diffuseColor.xyz += gauge_Color;
+        if (bHasTexturemap7)
+        {
+            float gauge_Color = TextureMap7.Sample(LinearSampler, input.uv + float2(0.f, 0.5f + g_float_0 / 100.f)).x;
+            diffuseColor.xyz += gauge_Color;
+        }
     }
 
     return diffuseColor;
@@ -311,7 +441,6 @@ float4 PS_UI3(UIOutput input) : SV_TARGET
     if (bHasDiffuseMap)
     {
         diffuseColor = pow(abs(DiffuseMap.Sample(LinearSamplerMirror, input.uv)), GAMMA) * g_vec4_0;
-        
     }
 
     if (input.uv.x > g_float_0)
@@ -321,7 +450,9 @@ float4 PS_UI3(UIOutput input) : SV_TARGET
     newUV.x = input.uv.x - frac(g_float_1);
     newUV.y = input.uv.y;
 
-    float falpha = SubMap0.Sample(LinearSampler, newUV).a + 0.3f;
+    float falpha;
+    if(bHasTexturemap7)
+        falpha = TextureMap7.Sample(LinearSampler, newUV).a + 0.3f;
     
     diffuseColor.xyz *= falpha;
 
@@ -519,7 +650,6 @@ float4 PS_CustomEffect1(GS_OUTPUT input) : SV_Target
     return color;
 }
 
-
 float4 PS_FRAME(UIOutput input) : SV_TARGET
 {
     return g_DrawColor;
@@ -689,11 +819,27 @@ float4 PS_Test2(GS_OUTPUT input) : SV_TARGET
 
     return color;
 }
+float4 PS_Terrain(GS_GRASS_OUTPUT input) : SV_TARGET
+{   
+    float4 color = DiffuseMap.Sample(LinearSampler, input.uv);
+    
+    return color;
+}
+
+float4 PS_ViewPort(UIOutput input) : SV_Target
+{
+    float4 color = DiffuseMap.Sample(LinearSampler, input.uv);
+    
+    if (color.w < 0.1f)
+        discard;
+    
+    return color;
+}
 
 
 technique11 T0
 {
-
+//0
     pass UI_DEFAULT
     {
         SetVertexShader(CompileShader(vs_5_0, VS_Default()));
@@ -703,7 +849,7 @@ technique11 T0
         SetBlendState(AlphaBlend, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
         SetGeometryShader(CompileShader(gs_5_0, GS_Ui()));
     }
-
+//1
     pass UI_CURTAIN_UP
     {
         SetVertexShader(CompileShader(vs_5_0, VS_Default()));
@@ -713,7 +859,7 @@ technique11 T0
         SetBlendState(AlphaBlend, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
         SetGeometryShader(CompileShader(gs_5_0, GS_Ui()));
     }
-
+//2
     pass UI_CLOCK
     {
         SetVertexShader(CompileShader(vs_5_0, VS_Default()));
@@ -723,7 +869,7 @@ technique11 T0
         SetBlendState(AlphaBlend, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
         SetGeometryShader(CompileShader(gs_5_0, GS_Ui()));
     }
-
+//3
     pass UI_HPBAR
     {
         SetVertexShader(CompileShader(vs_5_0, VS_Default()));
@@ -733,7 +879,7 @@ technique11 T0
         SetBlendState(AlphaBlend, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
         SetGeometryShader(CompileShader(gs_5_0, GS_Ui()));
     }
-
+//4
     pass UI_SLIDE_RIGHT
     {
         SetVertexShader(CompileShader(vs_5_0, VS_Default()));
@@ -743,7 +889,7 @@ technique11 T0
         SetBlendState(AlphaBlend, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
         SetGeometryShader(CompileShader(gs_5_0, GS_Ui()));
     }
-
+//5
     pass UI_LOADING
     {
         SetVertexShader(CompileShader(vs_5_0, VS_Default()));
@@ -753,7 +899,7 @@ technique11 T0
         SetBlendState(AlphaBlend, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
         SetGeometryShader(CompileShader(gs_5_0, GS_Ui()));
     }
-    
+//6
     pass UI_SKILL_COOL_END
     {
         SetVertexShader(CompileShader(vs_5_0, VS_Default()));
@@ -763,7 +909,7 @@ technique11 T0
         SetBlendState(AlphaBlend, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
         SetGeometryShader(CompileShader(gs_5_0, GS_Ui()));
     }
-    
+//7
     pass UI_TARGET_LOCKON
     {
         SetVertexShader(CompileShader(vs_5_0, VS_3D_To_2D()));
@@ -773,7 +919,7 @@ technique11 T0
         SetBlendState(AlphaBlend, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
         SetGeometryShader(CompileShader(gs_5_0, GS_Ui()));
     }
-     
+//8
     pass UI_TARGET_HP
     {
         SetVertexShader(CompileShader(vs_5_0, VS_3D_To_2D()));
@@ -783,7 +929,7 @@ technique11 T0
         SetBlendState(AlphaBlend, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
         SetGeometryShader(CompileShader(gs_5_0, GS_Ui()));
     }
-
+//9
     pass UI_SKILL_USE_GAUGE
     {
         SetVertexShader(CompileShader(vs_5_0, VS_Default()));
@@ -793,11 +939,12 @@ technique11 T0
         SetBlendState(AlphaBlend, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
         SetGeometryShader(CompileShader(gs_5_0, GS_Ui()));
     }
-
-
+//10
     PASS_VP(p1_instancing, VS_Instancing, PS_UI)
+//11
     PASS_VP_BLEND(P2, VS_UI, PS_UIBAR)
 
+//12
     pass p7
     {
         SetVertexShader(CompileShader(vs_5_0, VS_Default()));
@@ -808,6 +955,7 @@ technique11 T0
         SetGeometryShader(CompileShader(gs_5_0, GS_Sprite()));
 
     }
+//13
     pass p8
     {
         SetVertexShader(CompileShader(vs_5_0, VS_UI()));
@@ -818,6 +966,7 @@ technique11 T0
         SetGeometryShader(NULL);
 
     }
+//14
     pass p9
     {
         SetVertexShader(CompileShader(vs_5_0, VS_Default()));
@@ -828,6 +977,7 @@ technique11 T0
         SetGeometryShader(CompileShader(gs_5_0, GS_Sprite()));
 
     }
+//15
     pass p10
     {
         SetVertexShader(CompileShader(vs_5_0, VS_Default()));
@@ -838,6 +988,7 @@ technique11 T0
         SetGeometryShader(CompileShader(gs_5_0, GS_Sprite()));
 
     }
+//16
     pass p11
     {
         SetVertexShader(CompileShader(vs_5_0, VS_Default()));
@@ -848,6 +999,7 @@ technique11 T0
         SetGeometryShader(CompileShader(gs_5_0, GS_Sprite()));
 
     }
+//17
     pass p12
     {
         SetVertexShader(CompileShader(vs_5_0, VS_Default()));
@@ -857,6 +1009,27 @@ technique11 T0
         SetBlendState(AlphaBlend, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
         SetGeometryShader(CompileShader(gs_5_0, GS_Main()));
 
+    }
+//18
+// 지오메트리셰이더를 활용해서 만든 풀
+    pass GeometryWeed
+    {
+        SetVertexShader(CompileShader(vs_5_0, VS_Grass()));
+        SetRasterizerState(RS_CullNone);
+        SetDepthStencilState(DSS_Default, 0);
+        SetPixelShader(CompileShader(ps_5_0, PS_Terrain()));
+        SetBlendState(AlphaBlend, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
+        SetGeometryShader(CompileShader(gs_5_0, GS_Grass()));
+    }
+//19
+    pass UIModel
+    {
+        SetVertexShader(CompileShader(vs_5_0, VS_Default()));
+        SetRasterizerState(RS_CullNone);
+        SetDepthStencilState(DSS_Default, 0);
+        SetPixelShader(CompileShader(ps_5_0, PS_ViewPort()));
+        SetBlendState(BlendOff, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
+        SetGeometryShader(CompileShader(gs_5_0, GS_Ui()));
     }
 };
 

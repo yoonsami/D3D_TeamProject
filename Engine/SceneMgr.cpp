@@ -11,7 +11,7 @@ void SceneMgr::Tick()
 
 	m_pCurrScene->Tick();
 
-	
+
 
 }
 
@@ -71,13 +71,6 @@ void SceneMgr::Render()
 {
 	if (m_pCurrScene == nullptr)
 		return;
-
-	system_clock::time_point start_time = system_clock::now();
-	m_pCurrScene->Render();
-	system_clock::time_point end_time = system_clock::now();
-
-	nanoseconds nano = end_time - start_time;
-
 	if (KEYTAP(KEY_TYPE::F1))
 		int a = 0;
 	if (KEYTAP(KEY_TYPE::F2))
@@ -92,4 +85,9 @@ void SceneMgr::Render()
 		int a = 0;
 	if (KEYTAP(KEY_TYPE::F7))
 		int a = 0;
+
+	m_pCurrScene->Render();
+
+
+
 }

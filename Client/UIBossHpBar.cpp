@@ -48,12 +48,17 @@ HRESULT UIBossHpBar::Init()
 
     if (BOSS::MAX != m_eBoss)
     {
-        auto BossData = GET_DATA(m_eBoss);
+        auto& BossData = GET_DATA(m_eBoss);
 
         wstring strName = BossData.Name;
         m_pBossName.lock()->Get_FontRenderer()->Get_Text() = strName;
         _float4 vecPos = m_pBossName.lock()->GetOrAddTransform()->Get_State(Transform_State::POS);
-        vecPos.x = strName.length() / 2.f * -36.f;
+
+        if (BOSS::AXE == m_eBoss || BOSS::MIR == m_eBoss)
+            vecPos.x = -90;
+        else
+            vecPos.x = strName.length() / 2.f * -35.f;
+
         m_pBossName.lock()->GetOrAddTransform()->Set_State(Transform_State::POS, vecPos);
 
         vecPos.y = m_pElement.lock()->GetOrAddTransform()->Get_State(Transform_State::POS).y;
@@ -88,13 +93,35 @@ void UIBossHpBar::Tick()
         m_pBossName.expired())
 		return;
 
-    Check_Target();
+    //Check_Target();
     Change_Hp_Ratio();
     Change_Hp_Slow();
     Change_Param();
+}
 
-    if (KEYTAP(KEY_TYPE::F5))
-        m_pOwner.lock()->Get_Hurt(10.f);
+void UIBossHpBar::Remove_HpBar()
+{
+    if (m_pOwner.expired() ||
+        m_pBgHp.expired() ||
+        m_pFrontHp.expired() ||
+        m_pBackHp.expired() ||
+        m_pHpFont.expired() ||
+        m_pBgGroggy.expired() ||
+        m_pFrontGroggy.expired() ||
+        m_pElement.expired() ||
+        m_pBossName.expired())
+        return;
+
+    auto pScene = CUR_SCENE;
+    EVENTMGR.Delete_Object(m_pBgHp.lock());
+    EVENTMGR.Delete_Object(m_pFrontHp.lock());
+    EVENTMGR.Delete_Object(m_pBackHp.lock());
+    EVENTMGR.Delete_Object(m_pHpFont.lock());
+    EVENTMGR.Delete_Object(m_pBgGroggy.lock());
+    EVENTMGR.Delete_Object(m_pFrontGroggy.lock());
+    EVENTMGR.Delete_Object(m_pElement.lock());
+    EVENTMGR.Delete_Object(m_pBossName.lock());
+
 }
 
 void UIBossHpBar::Check_Target()
@@ -102,14 +129,14 @@ void UIBossHpBar::Check_Target()
     if (0.f >= m_pOwner.lock()->Get_CurHp())
     {
         auto pScene = CUR_SCENE;
-        pScene->Remove_GameObject(m_pBgHp.lock());
-        pScene->Remove_GameObject(m_pFrontHp.lock());
-        pScene->Remove_GameObject(m_pBackHp.lock());
-        pScene->Remove_GameObject(m_pHpFont.lock());
-        pScene->Remove_GameObject(m_pBgGroggy.lock());
-        pScene->Remove_GameObject(m_pFrontGroggy.lock());
-        pScene->Remove_GameObject(m_pElement.lock());
-        pScene->Remove_GameObject(m_pBossName.lock());
+        EVENTMGR.Delete_Object(m_pBgHp.lock());
+        EVENTMGR.Delete_Object(m_pFrontHp.lock());
+        EVENTMGR.Delete_Object(m_pBackHp.lock());
+        EVENTMGR.Delete_Object(m_pHpFont.lock());
+        EVENTMGR.Delete_Object(m_pBgGroggy.lock());
+        EVENTMGR.Delete_Object(m_pFrontGroggy.lock());
+        EVENTMGR.Delete_Object(m_pElement.lock());
+        EVENTMGR.Delete_Object(m_pBossName.lock());
         //pScene->Remove_GameObject(m_pOwner.lock());
     }
 }
@@ -157,6 +184,6 @@ void UIBossHpBar::Change_Param()
 
     m_pHpFont.lock()->Get_FontRenderer()->Get_Text() = strHp;
     _float4 vecPos = m_pHpFont.lock()->GetOrAddTransform()->Get_State(Transform_State::POS);
-    vecPos.x = ((strHp.length() - 3) / 2.f * -20.f) - 15.f;
+    vecPos.x = ((strHp.length() - 3) / 2.f * -10.f) - 15.f;
     m_pHpFont.lock()->GetOrAddTransform()->Set_State(Transform_State::POS, vecPos);
 }

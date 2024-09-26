@@ -34,9 +34,6 @@
     <Filter Include="99.Header\98.Default">
       <UniqueIdentifier>{1416d258-c22e-43be-a507-5d8b90f21cef}</UniqueIdentifier>
     </Filter>
-    <Filter Include="02.Component\00.MonoBehaviour\00.MainCameraScript">
-      <UniqueIdentifier>{c016c014-a8d2-4a1c-a3ab-e1eca59afce4}</UniqueIdentifier>
-    </Filter>
     <Filter Include="02.Component\00.MonoBehaviour\01.WeaponScript">
       <UniqueIdentifier>{b9bdbe99-4328-44ff-a881-4aa947da18c2}</UniqueIdentifier>
     </Filter>
@@ -118,18 +115,6 @@
     <Filter Include="02.Component\00.MonoBehaviour\01.Ui\05.UiCharChange">
       <UniqueIdentifier>{d7ec9187-4810-4eb3-99f4-b8ac7467bb1f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCardMove">
-      <UniqueIdentifier>{102f1145-f71e-42d9-9844-068bc263bbaf}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCardMove\01.UiGachaCardMove">
-      <UniqueIdentifier>{3027831e-95ce-4d09-be27-03c52c94d2c6}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCardMove\00.UiGachaController">
-      <UniqueIdentifier>{59555707-6b8d-4053-8196-de99405ea5f9}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCardMove\02.UiGachaEffectController">
-      <UniqueIdentifier>{82ec2157-d9a5-4909-b39f-d09e7c92c4a0}</UniqueIdentifier>
-    </Filter>
     <Filter Include="02.Component\00.MonoBehaviour\01.Ui\07.UiCardDeckController">
       <UniqueIdentifier>{df3fd50c-985b-4249-80f7-4903d25499ee}</UniqueIdentifier>
     </Filter>
@@ -139,14 +124,8 @@
     <Filter Include="02.Component\00.MonoBehaviour\05.Object">
       <UniqueIdentifier>{cb1c73e1-4a3a-44db-89b8-d0e6ad4cc4d6}</UniqueIdentifier>
     </Filter>
-    <Filter Include="97.Manager">
-      <UniqueIdentifier>{4ee62b09-76e9-4bd3-8553-1d4e912c45b2}</UniqueIdentifier>
-    </Filter>
     <Filter Include="02.Component\00.MonoBehaviour\01.Ui\08.MainUIController">
       <UniqueIdentifier>{30821e96-89ae-4920-865d-9c36a2e717df}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\09.UiCardDeckInvenChange">
-      <UniqueIdentifier>{45081402-d3fc-4713-9ed4-75b7f961e759}</UniqueIdentifier>
     </Filter>
     <Filter Include="02.Component\01.FSM\03.Special_FSM\00.Hero_Special_FSM">
       <UniqueIdentifier>{5f951534-c818-4ff1-9eac-7dbda5ac0b34}</UniqueIdentifier>
@@ -271,9 +250,6 @@
     <Filter Include="02.Component\00.MonoBehaviour\01.Ui\17.UiMarkNpc">
       <UniqueIdentifier>{72831f1a-04f7-4c99-bb2c-b123a25ffc4f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\18.UiDialogController">
-      <UniqueIdentifier>{093b24ca-395b-4343-8de6-fc39038975b6}</UniqueIdentifier>
-    </Filter>
     <Filter Include="02.Component\00.MonoBehaviour\01.Ui\19.UiInteraction">
       <UniqueIdentifier>{e5bcdf44-e977-42fb-8255-b7bb13c49886}</UniqueIdentifier>
     </Filter>
@@ -283,8 +259,179 @@
     <Filter Include="02.Component\01.FSM\05.NPC_FSM\00.Granseed">
       <UniqueIdentifier>{d3d0a97f-e88a-4a0c-b997-fd6da5de3488}</UniqueIdentifier>
     </Filter>
+    <Filter Include="01.Scene\00.PlayScene\03.Spike">
+      <UniqueIdentifier>{4cc58f6d-7c5f-48a0-a56e-d41dd72b8b9f}</UniqueIdentifier>
+    </Filter>
     <Filter Include="02.Component\01.FSM\03.Special_FSM\04.DragonBall_FSM">
-      <UniqueIdentifier>{f9d7289e-8b28-467c-b56c-c2aebc1f9da8}</UniqueIdentifier>
+      <UniqueIdentifier>{586a98a9-59d6-4639-9bb4-015cca513dbb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="97.Data">
+      <UniqueIdentifier>{4ee62b09-76e9-4bd3-8553-1d4e912c45b2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\18.UiQuestController">
+      <UniqueIdentifier>{093b24ca-395b-4343-8de6-fc39038975b6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\20.UiSettingController">
+      <UniqueIdentifier>{f2441089-0aeb-4843-bdaa-56777f4f01ef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\05.NPC_FSM\00.Granseed\00.GranseedPotion">
+      <UniqueIdentifier>{47afc46a-640b-4307-a608-8f0c53425527}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\21.UiBossDialog">
+      <UniqueIdentifier>{476d526a-e4bc-4678-8005-5dfc05d3244d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\05.NPC_FSM\00.Granseed\01.GranseedGuard01">
+      <UniqueIdentifier>{37536de3-6f3d-44f9-8588-ab10b3c63794}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\05.NPC_FSM\00.Granseed\02.GranseedGuard02">
+      <UniqueIdentifier>{13f40f8c-b93e-4e74-92c4-058fa58289de}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\05.NPC_FSM\00.Granseed\03.GranseedTraveler">
+      <UniqueIdentifier>{ffe508f9-7cb0-4295-b485-5e8a7aa0ac1c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\05.NPC_FSM\00.Granseed\04.GranseedChildren">
+      <UniqueIdentifier>{41d48cdd-c6b0-4019-99ea-09675940be92}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\00.Camera">
+      <UniqueIdentifier>{c016c014-a8d2-4a1c-a3ab-e1eca59afce4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\00.Camera\00.MainCamera">
+      <UniqueIdentifier>{d6f88cda-afc7-488e-9f4d-c57069f2febd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\00.Camera\01.QuarterViewCamera">
+      <UniqueIdentifier>{78ae0b78-6377-484d-8c53-03f5a32f41f8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\02.Monster_FSM\01.Boss_Monster\04.Boss_Giant_Mir_FSM">
+      <UniqueIdentifier>{222bdfb6-ec6a-4014-935c-b6ae4a1d194a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\05.Object\01.WaterUVSliding">
+      <UniqueIdentifier>{e39c4234-5790-41d6-92d7-1ff38da9307c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\05.Object\01.ObjectDissolveCreate">
+      <UniqueIdentifier>{a346a383-8ff9-4e70-8209-86371d56dae2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\07.Timer">
+      <UniqueIdentifier>{d42a2e20-88b8-43ae-a258-7a71dd1186e4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\06.Animal_FSM">
+      <UniqueIdentifier>{d4df34c5-b1ba-4475-bd86-f5d2e40f72a8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\07.EffectScript">
+      <UniqueIdentifier>{6eb06c3f-53f0-4091-86d4-44355dc8cec2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\07.EffectScript\01. Mir_13100_FireballScript">
+      <UniqueIdentifier>{1824f691-7ac3-40d1-9f3d-329b5191010d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCard">
+      <UniqueIdentifier>{102f1145-f71e-42d9-9844-068bc263bbaf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCard\01.UiGachaCardMove">
+      <UniqueIdentifier>{3027831e-95ce-4d09-be27-03c52c94d2c6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCard\00.UiGachaController">
+      <UniqueIdentifier>{59555707-6b8d-4053-8196-de99405ea5f9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCard\02.UiGachaEffectController">
+      <UniqueIdentifier>{82ec2157-d9a5-4909-b39f-d09e7c92c4a0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\09.UiCardDeckSwitch">
+      <UniqueIdentifier>{45081402-d3fc-4713-9ed4-75b7f961e759}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\03.Special_FSM\05.DestroyBuilding_FSM">
+      <UniqueIdentifier>{87c8fa28-b774-48de-b277-c3e1f4a06dab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\05.Object\02.Get_Gravity">
+      <UniqueIdentifier>{e4baddf9-a0cd-47bc-9948-cdba84922f4c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\22.UiCostumeController">
+      <UniqueIdentifier>{9fb9fff3-ce8a-4e9d-8820-b04532654252}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\02.Monster_FSM\01.Boss_Monster\04.Boss_Giant_Mir_FSM\00.Boss_Giant_Mir_Parts_FSM">
+      <UniqueIdentifier>{d36909e6-df0e-4cc8-9af0-dc8edc9f77c1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\03.Special_FSM\06.DragonBallMonster_FSM">
+      <UniqueIdentifier>{6ab2dadf-e0df-42e1-8328-a2e28bc35cc5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\07.EffectScript\02. Mir_100100_FireScript">
+      <UniqueIdentifier>{41e6a3e9-0881-4260-b242-45a42a945f09}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\05.Object\03.InventoryModelRotation">
+      <UniqueIdentifier>{bf44e733-45da-47de-af96-703b3e9e737c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\05.Object\04.Granseeed_Hide_OrctongScript">
+      <UniqueIdentifier>{60393e62-d0da-45cf-abd1-c27dbe2963ca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\04.SkillScript\02.FloorSkill_Script">
+      <UniqueIdentifier>{2a4f0a6d-e9b3-46e8-bea1-1019d0b7e2b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\05.Object\05.Glow_WitcherSense">
+      <UniqueIdentifier>{6963d75e-e475-4989-a640-6cb48f27ccaa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\08.WitcherSense">
+      <UniqueIdentifier>{5092edd2-9b2f-4fb8-bc53-974f663954f4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\23.UiUseItemSlot">
+      <UniqueIdentifier>{e912456c-169a-43d6-8df8-a98e77bf473a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\09.FieldScript">
+      <UniqueIdentifier>{64954211-a7b2-4fc2-b4ba-841085d12c64}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\09.FieldScript\00.Granseed">
+      <UniqueIdentifier>{1987bcb4-94a8-4750-b97e-5746bb872646}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\09.FieldScript\00.Granseed\00.Smoke_Detect">
+      <UniqueIdentifier>{320a2878-20d7-44cc-be4d-502c4d50009b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\07.Friend_FSM">
+      <UniqueIdentifier>{18d4e8a7-2626-44a6-a38e-d0a13ecb3c96}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\24.UiShop">
+      <UniqueIdentifier>{128cecf3-6023-457a-aaed-e5a5e5b1a401}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\05.Object\06.Delete">
+      <UniqueIdentifier>{1a4f70ac-4c43-46a2-8545-042166a43fee}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\05.Object\06.Delete\00.DeleteWhenAnimFinish">
+      <UniqueIdentifier>{865f67c5-c749-49bf-b51a-3082b463cb40}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\05.Object\06.Delete\01.DeleteWhenTimePassed">
+      <UniqueIdentifier>{f5ba07f0-e99b-48a4-8ac1-ac52e341a982}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\26.UiDialogController">
+      <UniqueIdentifier>{9dc67e6a-38ec-42b9-9b39-7daa819fe26f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\08.Companion_FSM">
+      <UniqueIdentifier>{f15824bb-b01a-4f5f-8227-244193e3caa6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\08.Companion_FSM\00.Companion_Spike">
+      <UniqueIdentifier>{8fe64f9c-61b9-4358-bedd-95d993ee148b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\08.Companion_FSM\01.Companion_Dellons">
+      <UniqueIdentifier>{e1e8a37e-bcf2-4bd6-b1ae-ef1574ca1016}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\08.Companion_FSM\02.Companion_Shane_FSM">
+      <UniqueIdentifier>{cfaa2eb9-641c-42a3-a34e-e88d8b917dc3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\01.FSM\02.Monster_FSM\00.Normal_Monster\05.EntSoldier_FSM">
+      <UniqueIdentifier>{96e8c404-8acf-4f9a-a1f9-2aafd167a6e2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\25.UiMessage">
+      <UniqueIdentifier>{0d6d8730-3750-42a9-94b4-7c7b5678f134}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\25.UiMessage\01.UiMessageController">
+      <UniqueIdentifier>{c24575d8-4012-4898-9756-6645df9f6f88}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\01.Ui\25.UiMessage\00.UiMessageCreater">
+      <UniqueIdentifier>{5e5e5c0f-8710-4534-8512-cb9b6343d926}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\07.EffectScript\03.EffectGoUp">
+      <UniqueIdentifier>{0f86a876-dc24-4f26-b801-d63ef8767e4d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="01.Scene\00.PlayScene\00.Granseed\04.Field">
+      <UniqueIdentifier>{99a38b1a-eda8-4b71-8883-93afc5ae7515}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Component\00.MonoBehaviour\07.EffectScript\CreateEffect_Script">
+      <UniqueIdentifier>{0b35d8fe-151b-4394-b9c3-fba19e7a2117}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -320,9 +467,6 @@
     </ClInclude>
     <ClInclude Include="SpearAce_FSM.h">
       <Filter>02.Component\01.FSM\01.Hero_FSM\01.SpearAce_FSM</Filter>
-    </ClInclude>
-    <ClInclude Include="MainCameraScript.h">
-      <Filter>02.Component\00.MonoBehaviour\00.MainCameraScript</Filter>
     </ClInclude>
     <ClInclude Include="WeaponScript.h">
       <Filter>02.Component\00.MonoBehaviour\01.WeaponScript</Filter>
@@ -454,13 +598,13 @@
       <Filter>02.Component\00.MonoBehaviour\01.Ui\05.UiCharChange</Filter>
     </ClInclude>
     <ClInclude Include="UiGachaCardMove.h">
-      <Filter>02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCardMove\01.UiGachaCardMove</Filter>
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCard\01.UiGachaCardMove</Filter>
     </ClInclude>
     <ClInclude Include="UiGachaController.h">
-      <Filter>02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCardMove\00.UiGachaController</Filter>
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCard\00.UiGachaController</Filter>
     </ClInclude>
     <ClInclude Include="UiGachaEffectController.h">
-      <Filter>02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCardMove\02.UiGachaEffectController</Filter>
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCard\02.UiGachaEffectController</Filter>
     </ClInclude>
     <ClInclude Include="UiCardDeckController.h">
       <Filter>02.Component\00.MonoBehaviour\01.Ui\07.UiCardDeckController</Filter>
@@ -469,13 +613,10 @@
       <Filter>02.Component\01.FSM\01.Hero_FSM\00.Player_FSM</Filter>
     </ClInclude>
     <ClInclude Include="DataMgr.h">
-      <Filter>97.Manager</Filter>
+      <Filter>97.Data</Filter>
     </ClInclude>
     <ClInclude Include="MainUiController.h">
       <Filter>02.Component\00.MonoBehaviour\01.Ui\08.MainUIController</Filter>
-    </ClInclude>
-    <ClInclude Include="UiCardDeckInvenChange.h">
-      <Filter>02.Component\00.MonoBehaviour\01.Ui\09.UiCardDeckInvenChange</Filter>
     </ClInclude>
     <ClInclude Include="Gacha_FSM.h">
       <Filter>02.Component\01.FSM\04.Gacha_FSM</Filter>
@@ -521,9 +662,6 @@
     </ClInclude>
     <ClInclude Include="UiMonsterHp.h">
       <Filter>02.Component\00.MonoBehaviour\01.Ui\11.UiMonsterHp</Filter>
-    </ClInclude>
-    <ClInclude Include="Shane_FSM.h">
-      <Filter>02.Component\01.FSM\01.Hero_FSM\07.Shane_FSM</Filter>
     </ClInclude>
     <ClInclude Include="Shane_Clone_FSM.h">
       <Filter>02.Component\01.FSM\03.Special_FSM\03.Shane_Clone_FSM</Filter>
@@ -571,15 +709,159 @@
     <ClInclude Include="UiMarkNpc.h">
       <Filter>02.Component\00.MonoBehaviour\01.Ui\17.UiMarkNpc</Filter>
     </ClInclude>
-    <ClInclude Include="UiDialogController.h">
-      <Filter>02.Component\00.MonoBehaviour\01.Ui\18.UiDialogController</Filter>
-    </ClInclude>
     <ClInclude Include="UIInteraction.h">
       <Filter>02.Component\00.MonoBehaviour\01.Ui\19.UiInteraction</Filter>
     </ClInclude>
-    <ClInclude Include="GranseedGuard01_FSM.h" />
+    <ClInclude Include="SpikeScene.h">
+      <Filter>01.Scene\00.PlayScene\03.Spike</Filter>
+    </ClInclude>
+    <ClInclude Include="UiQuestController.h">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\18.UiQuestController</Filter>
+    </ClInclude>
+    <ClInclude Include="UiSettingController.h">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\20.UiSettingController</Filter>
+    </ClInclude>
+    <ClInclude Include="NPC_FSM.h">
+      <Filter>02.Component\01.FSM\05.NPC_FSM</Filter>
+    </ClInclude>
+    <ClInclude Include="GranseedGuard01_FSM.h">
+      <Filter>02.Component\01.FSM\05.NPC_FSM\00.Granseed\01.GranseedGuard01</Filter>
+    </ClInclude>
+    <ClInclude Include="UiBossDialog.h">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\21.UiBossDialog</Filter>
+    </ClInclude>
+    <ClInclude Include="GranseedGuard02_FSM.h">
+      <Filter>02.Component\01.FSM\05.NPC_FSM\00.Granseed\02.GranseedGuard02</Filter>
+    </ClInclude>
+    <ClInclude Include="GranseedPotion_FSM.h">
+      <Filter>02.Component\01.FSM\05.NPC_FSM\00.Granseed\00.GranseedPotion</Filter>
+    </ClInclude>
+    <ClInclude Include="GranseedTraveler_FSM.h">
+      <Filter>02.Component\01.FSM\05.NPC_FSM\00.Granseed\03.GranseedTraveler</Filter>
+    </ClInclude>
+    <ClInclude Include="GranseedChildren_FSM.h">
+      <Filter>02.Component\01.FSM\05.NPC_FSM\00.Granseed\04.GranseedChildren</Filter>
+    </ClInclude>
+    <ClInclude Include="MainCameraScript.h">
+      <Filter>02.Component\00.MonoBehaviour\00.Camera\00.MainCamera</Filter>
+    </ClInclude>
+    <ClInclude Include="Boss_Giant_Mir_FSM.h">
+      <Filter>02.Component\01.FSM\02.Monster_FSM\01.Boss_Monster\04.Boss_Giant_Mir_FSM</Filter>
+    </ClInclude>
+    <ClInclude Include="ObjectDissolveCreate.h">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\01.ObjectDissolveCreate</Filter>
+    </ClInclude>
+    <ClInclude Include="NeutralAlpaca_FSM.h">
+      <Filter>02.Component\01.FSM\06.Animal_FSM</Filter>
+    </ClInclude>
+    <ClInclude Include="Mir_13100_Fireball.h">
+      <Filter>02.Component\00.MonoBehaviour\07.EffectScript\01. Mir_13100_FireballScript</Filter>
+    </ClInclude>
+    <ClInclude Include="UiCardDeckSwitch.h">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\09.UiCardDeckSwitch</Filter>
+    </ClInclude>
+    <ClInclude Include="DestroyBuilding_FSM.h">
+      <Filter>02.Component\01.FSM\03.Special_FSM\05.DestroyBuilding_FSM</Filter>
+    </ClInclude>
     <ClInclude Include="DragonBall_FSM.h">
       <Filter>02.Component\01.FSM\03.Special_FSM\04.DragonBall_FSM</Filter>
+    </ClInclude>
+    <ClInclude Include="WaterUVSliding.h">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\01.WaterUVSliding</Filter>
+    </ClInclude>
+    <ClInclude Include="TimerScript.h">
+      <Filter>02.Component\00.MonoBehaviour\07.Timer</Filter>
+    </ClInclude>
+    <ClInclude Include="Get_Gravity.h">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\02.Get_Gravity</Filter>
+    </ClInclude>
+    <ClInclude Include="UiCostumeController.h">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\22.UiCostumeController</Filter>
+    </ClInclude>
+    <ClInclude Include="Boss_Giant_Mir_Parts_FSM.h">
+      <Filter>02.Component\01.FSM\02.Monster_FSM\01.Boss_Monster\04.Boss_Giant_Mir_FSM\00.Boss_Giant_Mir_Parts_FSM</Filter>
+    </ClInclude>
+    <ClInclude Include="DragonBallMonster_FSM.h">
+      <Filter>02.Component\01.FSM\03.Special_FSM\06.DragonBallMonster_FSM</Filter>
+    </ClInclude>
+    <ClInclude Include="Mir_100100_FireScript.h">
+      <Filter>02.Component\00.MonoBehaviour\07.EffectScript\02. Mir_100100_FireScript</Filter>
+    </ClInclude>
+    <ClInclude Include="FloorSkill_Script.h">
+      <Filter>02.Component\00.MonoBehaviour\04.SkillScript\02.FloorSkill_Script</Filter>
+    </ClInclude>
+    <ClInclude Include="WitcherSense.h">
+      <Filter>02.Component\00.MonoBehaviour\08.WitcherSense</Filter>
+    </ClInclude>
+    <ClInclude Include="Glow_WitcherSense.h">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\05.Glow_WitcherSense</Filter>
+    </ClInclude>
+    <ClInclude Include="InventoryModelRotation.h" />
+    <ClInclude Include="UiUseItemSlot.h">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\23.UiUseItemSlot</Filter>
+    </ClInclude>
+    <ClInclude Include="Hide_OrctongScript.h">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\04.Granseeed_Hide_OrctongScript</Filter>
+    </ClInclude>
+    <ClInclude Include="InventoryModelRotation.h">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\03.InventoryModelRotation</Filter>
+    </ClInclude>
+    <ClInclude Include="Smoke_WitcherSense.h">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\05.Glow_WitcherSense</Filter>
+    </ClInclude>
+    <ClInclude Include="Smoke_Detect.h">
+      <Filter>02.Component\00.MonoBehaviour\09.FieldScript\00.Granseed\00.Smoke_Detect</Filter>
+    </ClInclude>
+    <ClInclude Include="Friend_FSM.h">
+      <Filter>02.Component\01.FSM\07.Friend_FSM</Filter>
+    </ClInclude>
+    <ClInclude Include="UIShop.h">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\24.UiShop</Filter>
+    </ClInclude>
+    <ClInclude Include="FieldScene.h">
+      <Filter>01.Scene\00.PlayScene\00.Granseed\04.Field</Filter>
+    </ClInclude>
+    <ClInclude Include="DeleteWhenAnimFinish.h">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\06.Delete\00.DeleteWhenAnimFinish</Filter>
+    </ClInclude>
+    <ClInclude Include="DeleteWhenTimePassed.h">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\06.Delete\01.DeleteWhenTimePassed</Filter>
+    </ClInclude>
+    <ClInclude Include="UiDialogController.h">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\26.UiDialogController</Filter>
+    </ClInclude>
+    <ClInclude Include="Companion_FSM.h">
+      <Filter>02.Component\01.FSM\08.Companion_FSM</Filter>
+    </ClInclude>
+    <ClInclude Include="Companion_Spike_FSM.h">
+      <Filter>02.Component\01.FSM\08.Companion_FSM\00.Companion_Spike</Filter>
+    </ClInclude>
+    <ClInclude Include="Companion_Dellons_FSM.h">
+      <Filter>02.Component\01.FSM\08.Companion_FSM\01.Companion_Dellons</Filter>
+    </ClInclude>
+    <ClInclude Include="Companion_Shane_FSM.h">
+      <Filter>02.Component\01.FSM\08.Companion_FSM\02.Companion_Shane_FSM</Filter>
+    </ClInclude>
+    <ClInclude Include="Shane_FSM.h">
+      <Filter>02.Component\01.FSM\01.Hero_FSM\07.Shane_FSM</Filter>
+    </ClInclude>
+    <ClInclude Include="Client_FSM.h">
+      <Filter>02.Component\01.FSM</Filter>
+    </ClInclude>
+    <ClInclude Include="EntSoldier_FSM.h">
+      <Filter>02.Component\01.FSM\02.Monster_FSM\00.Normal_Monster\05.EntSoldier_FSM</Filter>
+    </ClInclude>
+    <ClInclude Include="UiMessageController.h">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\25.UiMessage\01.UiMessageController</Filter>
+    </ClInclude>
+    <ClInclude Include="UiMessageCreater.h">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\25.UiMessage\00.UiMessageCreater</Filter>
+    </ClInclude>
+    <ClInclude Include="CreateEffect_Script.h">
+      <Filter>02.Component\00.MonoBehaviour\07.EffectScript\CreateEffect_Script</Filter>
+    </ClInclude>
+    <ClInclude Include="EffectGoUp.h">
+      <Filter>02.Component\00.MonoBehaviour\07.EffectScript\03.EffectGoUp</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -609,9 +891,6 @@
     </ClCompile>
     <ClCompile Include="SpearAce_FSM.cpp">
       <Filter>02.Component\01.FSM\01.Hero_FSM\01.SpearAce_FSM</Filter>
-    </ClCompile>
-    <ClCompile Include="MainCameraScript.cpp">
-      <Filter>02.Component\00.MonoBehaviour\00.MainCameraScript</Filter>
     </ClCompile>
     <ClCompile Include="WeaponScript.cpp">
       <Filter>02.Component\00.MonoBehaviour\01.WeaponScript</Filter>
@@ -719,13 +998,13 @@
       <Filter>02.Component\00.MonoBehaviour\01.Ui\05.UiCharChange</Filter>
     </ClCompile>
     <ClCompile Include="UiGachaCardMove.cpp">
-      <Filter>02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCardMove\01.UiGachaCardMove</Filter>
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCard\01.UiGachaCardMove</Filter>
     </ClCompile>
     <ClCompile Include="UiGachaController.cpp">
-      <Filter>02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCardMove\00.UiGachaController</Filter>
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCard\00.UiGachaController</Filter>
     </ClCompile>
     <ClCompile Include="UiGachaEffectController.cpp">
-      <Filter>02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCardMove\02.UiGachaEffectController</Filter>
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\06.UiGachaCard\02.UiGachaEffectController</Filter>
     </ClCompile>
     <ClCompile Include="UiCardDeckController.cpp">
       <Filter>02.Component\00.MonoBehaviour\01.Ui\07.UiCardDeckController</Filter>
@@ -734,13 +1013,10 @@
       <Filter>02.Component\01.FSM\01.Hero_FSM\00.Player_FSM</Filter>
     </ClCompile>
     <ClCompile Include="DataMgr.cpp">
-      <Filter>97.Manager</Filter>
+      <Filter>97.Data</Filter>
     </ClCompile>
     <ClCompile Include="MainUiController.cpp">
       <Filter>02.Component\00.MonoBehaviour\01.Ui\08.MainUIController</Filter>
-    </ClCompile>
-    <ClCompile Include="UiCardDeckInvenChange.cpp">
-      <Filter>02.Component\00.MonoBehaviour\01.Ui\09.UiCardDeckInvenChange</Filter>
     </ClCompile>
     <ClCompile Include="Gacha_FSM.cpp">
       <Filter>02.Component\01.FSM\04.Gacha_FSM</Filter>
@@ -833,15 +1109,156 @@
     <ClCompile Include="UiMarkNpc.cpp">
       <Filter>02.Component\00.MonoBehaviour\01.Ui\17.UiMarkNpc</Filter>
     </ClCompile>
-    <ClCompile Include="UiDialogController.cpp">
-      <Filter>02.Component\00.MonoBehaviour\01.Ui\18.UiDialogController</Filter>
-    </ClCompile>
     <ClCompile Include="UIInteraction.cpp">
       <Filter>02.Component\00.MonoBehaviour\01.Ui\19.UiInteraction</Filter>
     </ClCompile>
-    <ClCompile Include="GranseedGuard01_FSM.cpp" />
+    <ClCompile Include="SpikeScene.cpp">
+      <Filter>01.Scene\00.PlayScene\03.Spike</Filter>
+    </ClCompile>
     <ClCompile Include="DragonBall_FSM.cpp">
       <Filter>02.Component\01.FSM\03.Special_FSM\04.DragonBall_FSM</Filter>
+    </ClCompile>
+    <ClCompile Include="UiQuestController.cpp">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\18.UiQuestController</Filter>
+    </ClCompile>
+    <ClCompile Include="UiSettingController.cpp">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\20.UiSettingController</Filter>
+    </ClCompile>
+    <ClCompile Include="NPC_FSM.cpp">
+      <Filter>02.Component\01.FSM\05.NPC_FSM</Filter>
+    </ClCompile>
+    <ClCompile Include="GranseedGuard01_FSM.cpp">
+      <Filter>02.Component\01.FSM\05.NPC_FSM\00.Granseed\01.GranseedGuard01</Filter>
+    </ClCompile>
+    <ClCompile Include="UiBossDialog.cpp">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\21.UiBossDialog</Filter>
+    </ClCompile>
+    <ClCompile Include="GranseedGuard02_FSM.cpp">
+      <Filter>02.Component\01.FSM\05.NPC_FSM\00.Granseed\02.GranseedGuard02</Filter>
+    </ClCompile>
+    <ClCompile Include="GranseedPotion_FSM.cpp">
+      <Filter>02.Component\01.FSM\05.NPC_FSM\00.Granseed\00.GranseedPotion</Filter>
+    </ClCompile>
+    <ClCompile Include="GranseedTraveler_FSM.cpp">
+      <Filter>02.Component\01.FSM\05.NPC_FSM\00.Granseed\03.GranseedTraveler</Filter>
+    </ClCompile>
+    <ClCompile Include="GranseedChildren_FSM.cpp">
+      <Filter>02.Component\01.FSM\05.NPC_FSM\00.Granseed\04.GranseedChildren</Filter>
+    </ClCompile>
+    <ClCompile Include="MainCameraScript.cpp">
+      <Filter>02.Component\00.MonoBehaviour\00.Camera\00.MainCamera</Filter>
+    </ClCompile>
+    <ClCompile Include="Boss_Giant_Mir_FSM.cpp">
+      <Filter>02.Component\01.FSM\02.Monster_FSM\01.Boss_Monster\04.Boss_Giant_Mir_FSM</Filter>
+    </ClCompile>
+    <ClCompile Include="ObjectDissolveCreate.cpp">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\01.ObjectDissolveCreate</Filter>
+    </ClCompile>
+    <ClCompile Include="NeutralAlpaca_FSM.cpp">
+      <Filter>02.Component\01.FSM\06.Animal_FSM</Filter>
+    </ClCompile>
+    <ClCompile Include="Mir_13100_Fireball.cpp">
+      <Filter>02.Component\00.MonoBehaviour\07.EffectScript\01. Mir_13100_FireballScript</Filter>
+    </ClCompile>
+    <ClCompile Include="UiCardDeckSwitch.cpp">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\09.UiCardDeckSwitch</Filter>
+    </ClCompile>
+    <ClCompile Include="DestroyBuilding_FSM.cpp">
+      <Filter>02.Component\01.FSM\03.Special_FSM\05.DestroyBuilding_FSM</Filter>
+    </ClCompile>
+    <ClCompile Include="WaterUVSliding.cpp">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\01.WaterUVSliding</Filter>
+    </ClCompile>
+    <ClCompile Include="TimerScript.cpp">
+      <Filter>02.Component\00.MonoBehaviour\07.Timer</Filter>
+    </ClCompile>
+    <ClCompile Include="Get_Gravity.cpp">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\02.Get_Gravity</Filter>
+    </ClCompile>
+    <ClCompile Include="UiCostumeController.cpp">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\22.UiCostumeController</Filter>
+    </ClCompile>
+    <ClCompile Include="Boss_Giant_Mir_Parts_FSM.cpp">
+      <Filter>02.Component\01.FSM\02.Monster_FSM\01.Boss_Monster\04.Boss_Giant_Mir_FSM\00.Boss_Giant_Mir_Parts_FSM</Filter>
+    </ClCompile>
+    <ClCompile Include="DragonBallMonster_FSM.cpp">
+      <Filter>02.Component\01.FSM\03.Special_FSM\06.DragonBallMonster_FSM</Filter>
+    </ClCompile>
+    <ClCompile Include="Mir_100100_FireScript.cpp">
+      <Filter>02.Component\00.MonoBehaviour\07.EffectScript\02. Mir_100100_FireScript</Filter>
+    </ClCompile>
+    <ClCompile Include="FloorSkill_Script.cpp">
+      <Filter>02.Component\00.MonoBehaviour\04.SkillScript\02.FloorSkill_Script</Filter>
+    </ClCompile>
+    <ClCompile Include="WitcherSense.cpp">
+      <Filter>02.Component\00.MonoBehaviour\08.WitcherSense</Filter>
+    </ClCompile>
+    <ClCompile Include="Glow_WitcherSense.cpp">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\05.Glow_WitcherSense</Filter>
+    </ClCompile>
+    <ClCompile Include="InventoryModelRotation.cpp" />
+    <ClCompile Include="UiUseItemSlot.cpp">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\23.UiUseItemSlot</Filter>
+    </ClCompile>
+    <ClCompile Include="Hide_OrctongScript.cpp">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\04.Granseeed_Hide_OrctongScript</Filter>
+    </ClCompile>
+    <ClCompile Include="InventoryModelRotation.cpp">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\03.InventoryModelRotation</Filter>
+    </ClCompile>
+    <ClCompile Include="Smoke_WitcherSense.cpp">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\05.Glow_WitcherSense</Filter>
+    </ClCompile>
+    <ClCompile Include="Smoke_Detect.cpp">
+      <Filter>02.Component\00.MonoBehaviour\09.FieldScript\00.Granseed\00.Smoke_Detect</Filter>
+    </ClCompile>
+    <ClCompile Include="Friend_FSM.cpp">
+      <Filter>02.Component\01.FSM\07.Friend_FSM</Filter>
+    </ClCompile>
+    <ClCompile Include="UIShop.cpp">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\24.UiShop</Filter>
+    </ClCompile>
+    <ClCompile Include="FieldScene.cpp">
+      <Filter>01.Scene\00.PlayScene\00.Granseed\04.Field</Filter>
+    </ClCompile>
+    <ClCompile Include="DeleteWhenAnimFinish.cpp">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\06.Delete\00.DeleteWhenAnimFinish</Filter>
+    </ClCompile>
+    <ClCompile Include="DeleteWhenTimePassed.cpp">
+      <Filter>02.Component\00.MonoBehaviour\05.Object\06.Delete\01.DeleteWhenTimePassed</Filter>
+    </ClCompile>
+    <ClCompile Include="UiDialogController.cpp">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\26.UiDialogController</Filter>
+    </ClCompile>
+    <ClCompile Include="Companion_Spike_FSM.cpp">
+      <Filter>02.Component\01.FSM\08.Companion_FSM\00.Companion_Spike</Filter>
+    </ClCompile>
+    <ClCompile Include="Companion_FSM.cpp">
+      <Filter>02.Component\01.FSM\08.Companion_FSM</Filter>
+    </ClCompile>
+    <ClCompile Include="Companion_Dellons_FSM.cpp">
+      <Filter>02.Component\01.FSM\08.Companion_FSM\01.Companion_Dellons</Filter>
+    </ClCompile>
+    <ClCompile Include="Companion_Shane_FSM.cpp">
+      <Filter>02.Component\01.FSM\08.Companion_FSM\02.Companion_Shane_FSM</Filter>
+    </ClCompile>
+    <ClCompile Include="Client_FSM.cpp">
+      <Filter>02.Component\01.FSM</Filter>
+    </ClCompile>
+    <ClCompile Include="EntSoldier_FSM.cpp">
+      <Filter>02.Component\01.FSM\02.Monster_FSM\00.Normal_Monster\05.EntSoldier_FSM</Filter>
+    </ClCompile>
+    <ClCompile Include="UiMessageController.cpp">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\25.UiMessage\01.UiMessageController</Filter>
+    </ClCompile>
+    <ClCompile Include="UiMessageCreater.cpp">
+      <Filter>02.Component\00.MonoBehaviour\01.Ui\25.UiMessage\00.UiMessageCreater</Filter>
+    </ClCompile>
+    <ClCompile Include="CreateEffect_Script.cpp">
+      <Filter>02.Component\00.MonoBehaviour\07.EffectScript\CreateEffect_Script</Filter>
+    </ClCompile>
+    <ClCompile Include="EffectGoUp.cpp">
+      <Filter>02.Component\00.MonoBehaviour\07.EffectScript\03.EffectGoUp</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -885,7 +1302,7 @@
     <FxCompile Include="..\Shaders\SkyBox.fx">
       <Filter>Shader</Filter>
     </FxCompile>
-    <FxCompile Include="..\Shaders\Billboard.fx">
+    <FxCompile Include="..\Shaders\Fire.fx">
       <Filter>Shader</Filter>
     </FxCompile>
     <FxCompile Include="..\Shaders\Blur.fx">
@@ -932,6 +1349,15 @@
     </FxCompile>
     <FxCompile Include="..\Shaders\Render.fx">
       <Filter>Shader\Common</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\Water.fx">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\Shader_Terrain.fx">
+      <Filter>Shader</Filter>
+    </FxCompile>
+    <FxCompile Include="..\Shaders\Shader_Grass.fx">
+      <Filter>Shader</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>

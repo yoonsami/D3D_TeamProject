@@ -187,6 +187,7 @@
     <ClInclude Include="DistortionRenderer.h" />
     <ClInclude Include="EnginePch.h" />
     <ClInclude Include="Enum.h" />
+    <ClInclude Include="EventMgr.h" />
     <ClInclude Include="FileUtils.h" />
     <ClInclude Include="FontRenderer.h" />
     <ClInclude Include="Frustum.h" />
@@ -245,6 +246,8 @@
     <ClInclude Include="Struct.h" />
     <ClInclude Include="StructuredBuffer.h" />
     <ClInclude Include="Technique.h" />
+    <ClInclude Include="Terrain.h" />
+    <ClInclude Include="TerrainRenderer.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="TextureBuffer.h" />
     <ClInclude Include="TimeMgr.h" />
@@ -268,6 +271,7 @@
     <ClCompile Include="ConstantBuffer.cpp" />
     <ClCompile Include="CustomFont.cpp" />
     <ClCompile Include="DistortionRenderer.cpp" />
+    <ClCompile Include="EventMgr.cpp" />
     <ClCompile Include="FileUtils.cpp" />
     <ClCompile Include="FontRenderer.cpp" />
     <ClCompile Include="Frustum.cpp" />
@@ -335,6 +339,8 @@
     <ClCompile Include="SphereCollider.cpp" />
     <ClCompile Include="StructuredBuffer.cpp" />
     <ClCompile Include="Technique.cpp" />
+    <ClCompile Include="Terrain.cpp" />
+    <ClCompile Include="TerrainRenderer.cpp" />
     <ClCompile Include="Texture.cpp" />
     <ClCompile Include="TextureBuffer.cpp" />
     <ClCompile Include="TimeMgr.cpp" />

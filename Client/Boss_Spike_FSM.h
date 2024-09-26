@@ -1,9 +1,9 @@
 #pragma once
-#include "FSM.h"
+#include "Client_FSM.h"
 #include "ForwardMovingSkillScript.h"
 
 class Boss_Spike_FSM :
-	public FSM
+	public Client_FSM
 {
 public:
 	enum class STATE
@@ -21,7 +21,7 @@ public:
 		gaze_l,
 		gaze_r,
 
-		die,
+		SQ_Die,
 		hit, //normal_hit
 		hit_b,
 		hit_f,
@@ -66,42 +66,13 @@ public:
 public:
 	virtual HRESULT Init() override;
 	virtual void Tick() override;
-	virtual void Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookTarget) override;
+	virtual void Get_Hit(const wstring& skillname, _float fDamage,  shared_ptr<GameObject> pLookTarget) override;
 
 
 private:
 	virtual void State_Tick() override; // 상태를 항상 업데이트해줌
 	virtual void State_Init() override; // 상태가 바뀔 때 한번 초기화 해줌
-	virtual void OnCollision(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void OnCollisionEnter(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void OnCollisionExit(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void AttackCollider_On(const wstring& skillname) override;
-	virtual void AttackCollider_Off() override;
 	virtual void Set_State(_uint iIndex) override;
-
-
-	//SQ_Appear_01,
-	//	SQ_Appear_02,
-	//	SQ_Appear_03,
-
-	//	b_idle,
-	//	b_run,
-
-	//	gaze_b,
-	//	gaze_f,
-	//	gaze_l,
-	//	gaze_r,
-	//	die,
-
-	//	hit, //normal_hit
-	//	hit_b,
-	//	hit_f,
-	//	hit_l,
-	//	hit_r,
-	//	groggy_start,
-	//	groggy_end,
-	//	groggy_loop,
-
 
 
 	void SQ_Appear_01();
@@ -127,8 +98,8 @@ private:
 	void gaze_r();
 	void gaze_r_Init();
 
-	void die();
-	void die_Init();
+	void SQ_Die();
+	void SQ_Die_Init();
 
 	
 	void hit();
@@ -189,15 +160,16 @@ private:
 	void skill_201200();
 	void skill_201200_Init();
 
-	void Create_ForwardMovingSkillCollider(const _float4& vPos, _float fSkillRange, FORWARDMOVINGSKILLDESC desc, const wstring& SkillType);
-	void Calculate_SkillCamRight();
+	void Calculate_LipBoneMatrix();
 	void Set_AttackSkill();
 	void Create_BossSpikeChair();
 	void Set_Gaze();
+	void DeadSetting();
 	void Create_CounterMotionTrail();
 
 	_float3 Calculate_TargetTurnVector();
-	
+	_float CamDistanceLerp(_float fStart, _float fEnd, _float fRatio);
+
 private:
 	STATE m_eCurState = STATE::b_idle;
 	STATE m_ePreState = STATE::NONE;
@@ -208,6 +180,9 @@ private:
 	_float4 m_vFirstPos = _float4(0.f);
 	_float m_fTurnSpeed = XM_PI * 5.f;
 
+	_float m_fDieCamDistance = 0.f;
+	_float m_fCamRatio = 0.f;
+
 	_float m_fGroggyStateAnimationSpeed = 1.f;
 	_float m_fGroggyPatternAnimationSpeed = 0.15f;
 
@@ -215,11 +190,10 @@ private:
 	COOLTIMEINFO m_tAttackCoolTime = { 1.f, 0.f };
 	COOLTIMEINFO m_tChaseCoolTime = { 2.f, 0.f };
 	COOLTIMEINFO m_tSkillCoolTime = { 0.2f, 0.f };
-	COOLTIMEINFO m_tGroggyPatternTimer = { 30.f, 0.f };
+	COOLTIMEINFO m_tGroggyPatternTimer = { 20.f, 0.f };
 
 
 	_bool m_bChaseSkill = false;
-	_bool m_bDetected = false;
 	_bool m_bCounter = false;
 	_bool m_bSetPattern = false;
 	_bool m_bGroggyPattern = false;
@@ -228,11 +202,21 @@ private:
 
 	_uint m_iPreAttack = 100;
 	
-	_float4 m_vPlayerBodyPos = _float4(0.f);
-	_float4 m_vChairPos = _float4(0.f);
 	
+	_float4 m_vLastPatternCamStopPos = _float4(0.f);
+	_float4 m_vPlayerBodyPos = _float4(0.f); //For. Intro 
+	_float4 m_vChairPos = _float4(0.f); //For.Intro
+	_float4 m_vDieCamStopPos = _float4(0.f); //For. DieCam
+	_float4x4 m_DieCamWorld = XMMatrixIdentity(); //For. DieCam
+	_float4x4 m_DieCamPlayerWorld = XMMatrixIdentity(); //For. DieCam
+	
+	_uint m_iLipBoneIndex = 0;
+	_float4 m_vLipBonePos = _float4(0.f);
+	_float4x4 m_LipBoneMatrix= XMMatrixIdentity();
+
 	_uint m_iChairBoneIndex = 0;
 	_float4 m_vChairBonePos = _float4(0.f);
 	_float4x4 m_ChairBoneMatrix = XMMatrixIdentity();
+
 };
 

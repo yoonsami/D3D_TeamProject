@@ -117,12 +117,15 @@ private:
 	/* Property */
 	char					m_szTag[MAX_PATH] = "-";
 	_float					m_fDuration = { 3.f };
-	_bool					m_bBlurOn = { false };
+	_bool					m_bLightOn = { false };
+	_float					m_fLightIntensity = { 1.f };
 	_bool					m_bUseFadeOut = { true };
 	_int					m_iSamplerType = { 1 };
 	_bool					m_bIsLoop = { false };
 	_bool					m_bIsFollowGroup_OnlyTranslate = { false };
 	_bool					m_bIsFollowGroup_LookSameDir = { false };
+	_bool					m_bIsFDistortion = { false };
+	_bool					m_bIsSSD = { false };
 
 	/* Mesh Count */
 	_int					m_iMeshCnt = { 1 };
@@ -215,16 +218,23 @@ private:
 	
 	_int					m_iScalingOption = { 0 };				// no change, change to endscale
 	_float					m_fEndScaleOffset[3] = { 0.f, 0.f, 0.f };
-	
+	_int					m_iScaleSpeedType = { 2 };
+	_float2					m_vCurvePoint_Scale[4] = { _float2(0.f, 0.f),_float2(0.3f, 0.5f), _float2(0.7f, 0.5f), _float2(1.f, 1.f) };
+
 	_int					m_iTurnOption = { 0 };			// no change, turn with static, turn with random 
 	_float					m_fTurnSpeed = { 0.f };
 	_float					m_fRandomAxis_Min[3] = { 0.f, 0.f, 0.f };		
 	_float					m_fRandomAxis_Max[3] = { 0.f, 0.f, 0.f };
 	_bool					m_bBillbordAxes[2] = { true, true};
-	
+	_int					m_iTurnAxesOption = { 0 };
+
 	/* const */
 	const string					m_strTexturePath = "../Resources/Textures/Universal/";
 	const string					m_strNormalTexturePath = "../Resources/Textures/Universal/Normal/";
 	const ImGuiColorEditFlags		ColorEdit_flags = 0 | ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_HDR;
+
+	/* for. decal */
+	_int					m_iCubeMeshIndex = { 0 };
+	const string			m_strSSDMesh = "Fxmesh_cube_01";
 };
 

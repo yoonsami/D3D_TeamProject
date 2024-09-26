@@ -112,8 +112,11 @@ private:
       "TEXTURE15",
    };
 
-   const char* m_arrFontType[1] = {
-      "136ex"
+   const char* m_arrFontType[4] = {
+      "136ex",
+      "Ori_136ex",
+      "overwatch",
+      "Soyo_Maple"
    };
 
 };

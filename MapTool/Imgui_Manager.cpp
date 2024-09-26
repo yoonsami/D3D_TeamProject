@@ -16,6 +16,7 @@
 #include "ModelRenderer.h"
 #include "ModelAnimator.h"
 #include "Geometry.h"
+#include "Terrain.h"
 
 #include "Camera.h"
 #include "DemoScene.h"
@@ -30,7 +31,11 @@
 #include "RigidBody.h"
 
 #include "PointLightScript.h"
+#include "ModelAnimation.h"
+#include "WaterUVSliding.h"
+//#include "TerrainRenderer.h"
 
+#include "WeedScript.h"
 using namespace ImGui;
 
 ImGuizmo::OPERATION m_eGuizmoType = { ImGuizmo::TRANSLATE };
@@ -69,6 +74,9 @@ void ImGui_Manager::ImGui_SetUp()
 
     Load_SkyBoxTexture();
     Load_MapObjectBase();
+    Load_TerrainTile();
+    Load_Water();
+    Load_WeedNames();
 
     Create_SampleObjects();
 }
@@ -92,6 +100,10 @@ void ImGui_Manager::ImGui_Tick()
     Picking_Object();
     LookAtSampleObject();
     Frame_ModelObj();
+    Frame_Terrain();
+    Frame_PickingManager();
+    Frame_Weed();
+    Frame_WeedManager();
 
     Show_Gizmo();
 }
@@ -293,6 +305,7 @@ void ImGui_Manager::Frame_Objects()
 
     ImGui::End();
 }
+
 void ImGui_Manager::Frame_SelcetObjectManager()
 {
     ImGui::Begin("Frame_SelectObjectManager"); // 글자 맨윗줄
@@ -465,22 +478,32 @@ void ImGui_Manager::Frame_SelcetObjectManager()
         if(m_pMapObjects[m_iObjects]->Get_ModelRenderer() != nullptr)
         {
             // CullNone여부 판단
-            if (ImGui::Checkbox("##bCullNone", &CurObjectDesc.bCullNone))
+            _int passType = _int(CurObjectDesc.bCullNone);
+            if (ImGui::InputInt("##bCullNone", &passType))
             {
-                for (_int i = 0; i < m_pMapObjects.size(); ++i)
+                if (passType < 0) passType = 0;
+                if (passType > ModelRenderer::INSTANCE_PASSTYPE::PASS_DEFAULT) passType = ModelRenderer::INSTANCE_PASSTYPE::PASS_DEFAULT;
+                CurObjectDesc.bCullNone = _char(passType);
+                m_pMapObjects[m_iObjects]->Get_ModelRenderer()->Set_PassType((ModelRenderer::INSTANCE_PASSTYPE)CurObjectDesc.bCullNone);
+				/* for (_int i = 0; i < m_pMapObjects.size(); ++i)
+				 {
+					 MapObjectScript::MAPOBJDESC& tempDesc = m_pMapObjects[i]->Get_Script<MapObjectScript>()->Get_DESC();
+					 if (CurObjectDesc.strName == tempDesc.strName)
+					 {
+						 tempDesc.bCullNone = CurObjectDesc.bCullNone;
+						 m_pMapObjects[i]->Get_ModelRenderer()->Set_PassType((ModelRenderer::INSTANCE_PASSTYPE)CurObjectDesc.bCullNone);
+					 }
+				 }*/
+                for (auto& obj : m_pMapObjects)
                 {
-                    MapObjectScript::MAPOBJDESC& tempDesc = m_pMapObjects[i]->Get_Script<MapObjectScript>()->Get_DESC();
-                    if (CurObjectDesc.strName == tempDesc.strName)
+                    if(!obj->Get_Model())
+                        continue;
+
+                    if (obj->Get_Model()->Get_ModelTag() == m_pMapObjects[m_iObjects]->Get_Model()->Get_ModelTag())
                     {
+                        MapObjectScript::MAPOBJDESC& tempDesc = obj->Get_Script<MapObjectScript>()->Get_DESC();
                         tempDesc.bCullNone = CurObjectDesc.bCullNone;
-                        if (CurObjectDesc.bCullNone)
-                        {
-                            m_pMapObjects[i]->Get_ModelRenderer()->Set_PassType(ModelRenderer::PASS_MAPOBJECT_CULLNONE);
-                        }
-                        else
-                        {
-                            m_pMapObjects[i]->Get_ModelRenderer()->Set_PassType(ModelRenderer::PASS_MAPOBJECT);
-                        }
+                        obj->Get_ModelRenderer()->Set_PassType((ModelRenderer::INSTANCE_PASSTYPE)CurObjectDesc.bCullNone);
                     }
                 }
             }
@@ -524,6 +547,7 @@ void ImGui_Manager::Frame_SelcetObjectManager()
 
     ImGui::End();
 }
+
 void ImGui_Manager::Frame_Light()
 {
     ImGui::Begin("SkyBox&Light"); // 글자 맨윗줄
@@ -579,7 +603,7 @@ void ImGui_Manager::Frame_Light()
     Color& Ambient = DirectionalLightInfo.color.ambient;
     ImGui::ColorEdit4("Ambient##DirLight", (_float*)&Ambient);
     Color& Diffuse = DirectionalLightInfo.color.diffuse;
-    ImGui::ColorEdit4("Diffuse##DirLight", (_float*)&Diffuse);
+    ImGui::ColorEdit4("Diffuse##DirLight", (_float*)&Diffuse,ImGuiColorEditFlags_HDR);
     Color& Specular = DirectionalLightInfo.color.specular;
     ImGui::ColorEdit4("Specular##DirLight", (_float*)&Specular);
     Color& Emissive = DirectionalLightInfo.color.emissive;
@@ -733,6 +757,22 @@ void ImGui_Manager::Frame_Wall()
         Delete_GroundMesh();
     }
 
+    if (ImGui::Button("MagicButton"))
+    {
+        m_iObjects = 0;
+        for (; m_iObjects<m_pMapObjects.size();)
+        {
+            wstring ObjName = m_pMapObjects[m_iObjects]->Get_Name();
+            if(ObjName.find(L"Weed") != std::string::npos)
+            {
+                Delete_MapObject();
+            }
+            if (m_iObjects >= m_pMapObjects.size() - 1)
+                break;
+            ++m_iObjects;
+        }
+    }
+
     ImGui::End();
 }
 
@@ -745,7 +785,19 @@ void ImGui_Manager::Frame_ShaderOption()
         {
             RenderOptionTab();
             //ModelOptionTab();
-            //CameraOptionTab();
+
+
+			if (BeginTabItem("NormalDepth"))
+			{
+
+				DragFloat("g_DepthRange", &CUR_SCENE->g_DepthRange, 1.f, 0.1f,1000.f);
+				DragFloat("g_ClosestDepth", &CUR_SCENE->g_ClosestDepth, 1.f, 0.1f, 200.f);
+				DragFloat2("MinMaxTessellation Dist", (_float*)&GAMEINSTANCE.m_vMinMaxTessellationDistance, 1.f, 0.01f, 1000.f);
+
+				EndTabItem();
+			}
+
+
             EndTabBar();
         }
     }
@@ -753,40 +805,201 @@ void ImGui_Manager::Frame_ShaderOption()
     ImGui::End();
 }
 
+void ImGui_Manager::Frame_Terrain()
+{
+    ImGui::Begin("Frame_Terrain");
+
+    // 바다 색깔변ㄱ경
+    ImGui::Text("OceanData");
+    ImGui::ColorEdit4("Color##Ocean1", (_float*)&m_WaterColor1, ImGuiColorEditFlags_HDR);
+    ImGui::ColorEdit4("Color##Ocean2", (_float*)&m_WaterColor2, ImGuiColorEditFlags_HDR);
+    ImGui::DragInt("##OceanInt0", &m_WaterInt0, 0.1f);
+    ImGui::DragInt("##OceanInt1", &m_WaterInt1, 0.1f);
+    
+    auto OceanObj = CUR_SCENE->Get_GameObject(L"Water_Plane");
+    if(OceanObj != nullptr)
+    {
+        auto WaterScript = OceanObj->Get_Script<WaterUVSliding>();
+        WaterScript->Set_Color1(m_WaterColor1);
+        WaterScript->Set_Color2(m_WaterColor2);
+        WaterScript->Set_Int0(m_WaterInt0);
+        WaterScript->Set_Int1(m_WaterInt1);
+    }
+
+    ImGui::Text("TerrainSize");
+    ImGui::DragInt2("##TerrainSize", m_iTerrainSize);
+
+    if (ImGui::Button("CreateTerrain"))
+    {
+        Create_Terrain();
+    }
+    //// 선택한 텍스쳐로 터레인의 디퓨즈 바꾸기 - 임시코드
+    //if(ImGui::ListBox("Tile Texture List", &m_iCurrentTile, VectorOfStringGetter, &m_TileNames, int(m_TileNames.size())))
+    //{
+    //    CUR_SCENE->Get_GameObject(L"Terrain")->Get_TerrainRenderer()->Get_Material()->Set_TextureMap(RESOURCES.Get<Texture>(Utils::ToWString(m_TileNames[m_iCurrentTile])), TextureMapType::DIFFUSE);
+    //}
+
+    ImGui::DragFloat("BrushRadius", &m_fTerrainBrushRadius, 0.1f);
+    ImGui::DragFloat("TilePressForce", &m_fTilePressForce, 0.001f);
+
+    // 범위안의 정점을 해당높이로 변환
+    ImGui::InputFloat("##TerrainSetHeight", &m_fTerrainSetHeight);
+    ImGui::SameLine();
+    if(ImGui::Button("TerrainSetHeight"))
+    {
+        Set_TerrainHeight();
+    }
+
+    if (ImGui::Button("Save##TerrainSave"))
+    {
+        Save_TerrainData();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Load##TerrainLoad"))
+    {
+        LoadAndCreateTerrain();
+    }
+	ImGui::SameLine();
+	if (ImGui::Button("CalNormalTangent##TerrainCalNormalTangent"))
+	{
+        Cal_NormalTangent();
+	}
+
+    ImGui::End();
+}
+
+void ImGui_Manager::Frame_Weed()
+{
+    ListBox("WeedName", &m_iCurrentWeedIndex, VectorOfStringGetter, &m_strWeedCatalogue, int(m_strWeedCatalogue.size()));
+}
+
+void ImGui_Manager::Frame_WeedManager()
+{
+    if (Button("CreateWeed")) {
+        Create_WeedRegion();
+    }
+}
+
+void ImGui_Manager::Frame_PickingManager()
+{
+    ImGui::Begin("Frame_PickingManager");
+
+    // 우클릭 맵오브젝트or터레인 피킹
+    ImGui::Text("RightButton");
+    if (ImGui::Checkbox("MapObjectPickingMode", &m_bMapObjectPickingMode))
+    {
+        m_bTerrainPickingMode = !m_bMapObjectPickingMode;
+    }
+    if (ImGui::Checkbox("TerrainPickingMode", &m_bTerrainPickingMode))
+    {
+        m_bMapObjectPickingMode = !m_bTerrainPickingMode;
+    }
+    // 휠버튼 벽or바닥 피킹
+    ImGui::Text("MiddleButton");
+    if (ImGui::Checkbox("WallPickingMode", &m_bWallPickingMod))
+    {
+        m_bGroundPickingMod = !m_bWallPickingMod;
+    }
+    if (ImGui::Checkbox("GroundPickingMode", &m_bGroundPickingMod))
+    {
+        m_bWallPickingMod = !m_bGroundPickingMod;
+    }
+
+    ImGui::End();
+}
+
 void ImGui_Manager::Picking_Object()
 {
-    // 마우스 우클릭 시 메시피킹
-    if (KEYTAP(KEY_TYPE::RBUTTON))
-    {
-        POINT MousePos;
-        ::GetCursorPos(&MousePos);
-        ::ScreenToClient(g_hWnd, &MousePos);
-        _float2 ScreenPos{ (_float)MousePos.x, (_float)MousePos.y };
+    POINT MousePos;
+    ::GetCursorPos(&MousePos);
+    ::ScreenToClient(g_hWnd, &MousePos);
+    _float2 ScreenPos{ (_float)MousePos.x, (_float)MousePos.y };
 
-        shared_ptr<GameObject> PickObject = PickingMgr::GetInstance().Pick_Mesh(ScreenPos, CUR_SCENE->Get_Camera(L"Default")->Get_Camera(), CUR_SCENE->Get_Objects(), m_PickingPos);
-        if(m_GizmoTarget == GizmoTMapObj)
-            // 선택된 오브젝트 번호 바꾸기 현재기즈모타겟이 맵오브젝트일때만 사용.
+    if (m_bTerrainPickingMode && m_pTerrain != nullptr)
+    {
+        // 브러시위치를 기준으로 y제외 BrushRadius 거리안에있는 범위를 상승(y증가)시킴
+        if (KEYPUSH(KEY_TYPE::E))
         {
-            for (_int i = 0; i < m_pMapObjects.size(); ++i)
+            auto& vtx = m_pTerrain->Get_MeshRenderer()->Get_Mesh()->Get_Geometry()->Get_Vertices();
+            auto tempVTX = vtx;
+            for (auto& VB : tempVTX)
             {
-                if (PickObject == m_pMapObjects[i])
+                m_vTerrainBrushPosition.y = VB.vPosition.y; // 같은높이라고 가정.
+                if ((VB.vPosition - m_vTerrainBrushPosition).Length() <= m_fTerrainBrushRadius)
                 {
-                    m_iObjects = i;
-                    // 오브젝트 리스트에서 선택한 높이로 변경
-                    m_bObjectListResetHeight = true;
+                    VB.vPosition.y += m_fTilePressForce;
                 }
             }
+            m_pTerrain->Get_MeshRenderer()->Get_Mesh()->Get_Geometry()->Set_Vertices(tempVTX);
+            m_pTerrain->Get_MeshRenderer()->Get_Mesh()->Create_Buffer();
+            //D3D11_MAPPED_SUBRESOURCE tempDesc;
+            //CONTEXT->Map(m_pTerrain->Get_MeshRenderer()->Get_Mesh()->Get_VertexBuffer()->Get_ComPtr().Get(),
+            //    0,
+            //    D3D11_MAP_WRITE_DISCARD,
+            //    0,
+            //    &tempDesc);
+
+            //CONTEXT->Unmap(m_pTerrain->Get_MeshRenderer()->Get_Mesh()->Get_VertexBuffer()->Get_ComPtr().Get(), 0);
+        }
+        // 브러시위치를 기준으로 y제외 BrushRadius 거리안에있는 범위를 상승(y증가)시킴
+        else if (KEYPUSH(KEY_TYPE::Q))
+        {
+            auto& vtx = m_pTerrain->Get_MeshRenderer()->Get_Mesh()->Get_Geometry()->Get_Vertices();
+            auto tempVTX = vtx;
+            for (auto& VB : tempVTX)
+            {
+                m_vTerrainBrushPosition.y = VB.vPosition.y; // 같은높이라고 가정.
+                if ((VB.vPosition - m_vTerrainBrushPosition).Length() <= m_fTerrainBrushRadius)
+                {
+                    VB.vPosition.y -= m_fTilePressForce;
+                }
+            }
+            m_pTerrain->Get_MeshRenderer()->Get_Mesh()->Get_Geometry()->Set_Vertices(tempVTX);
+            m_pTerrain->Get_MeshRenderer()->Get_Mesh()->Create_Buffer();
+        }
+    }
+
+    // 마우스 우클릭 시 맵오브젝트피킹
+    if (KEYTAP(KEY_TYPE::RBUTTON))
+    {
+        // 맵오브젝트피킹
+        if(m_bMapObjectPickingMode)
+        {
+            shared_ptr<GameObject> PickObject = PickingMgr::GetInstance().Pick_Mesh(ScreenPos, CUR_SCENE->Get_Camera(L"Default")->Get_Camera(), m_pMapObjects, m_PickingPos);
+
+            if (m_GizmoTarget == GizmoTMapObj)
+                // 선택된 오브젝트 번호 바꾸기 현재기즈모타겟이 맵오브젝트일때만 사용.
+            {
+                for (_int i = 0; i < m_pMapObjects.size(); ++i)
+                {
+                    if (PickObject == m_pMapObjects[i])
+                    {
+                        m_iObjects = i;
+                        // 오브젝트 리스트에서 선택한 높이로 변경
+                        m_bObjectListResetHeight = true;
+                    }
+                }
+            }
+        }
+    }
+    // 터레인피킹
+    if (KEYPUSH(KEY_TYPE::RBUTTON))
+    {
+        if (m_bTerrainPickingMode && m_pTerrain != nullptr)
+        {
+            // 터레인 피킹위치갱신
+            PickingMgr::GetInstance().Pick_Mesh(ScreenPos, CUR_SCENE->Get_Camera(L"Default")->Get_Camera(), m_pTerrain, m_vTerrainBrushPosition);
+            // 오브젝트 생성 피킹위치도 변경
+            m_PickingPos = m_vTerrainBrushPosition;
+
+            m_pTerrain->Get_MeshRenderer()->SetVec4(0, _float4(m_vTerrainBrushPosition, 1.f));
+            m_pTerrain->Get_MeshRenderer()->SetFloat(0, m_fTerrainBrushRadius);
         }
     }
     // 마우스 휠클릭 시 WallPickingPoint 저장
     if (KEYTAP(KEY_TYPE::MBUTTON))
     {
-        POINT MousePos;
-        ::GetCursorPos(&MousePos);
-        ::ScreenToClient(g_hWnd, &MousePos);
-        _float2 ScreenPos{ (_float)MousePos.x, (_float)MousePos.y };
-
-        // 벽피킹
+        // 맵오브젝트피킹 - 벽으로사용
         if (m_bWallPickingMod)
         {
             if (m_bFirstWallPick)
@@ -803,7 +1016,7 @@ void ImGui_Manager::Picking_Object()
                 m_WallPickingPos[0] = m_WallPickingPos[1];
             }
         }
-        // 바닥피킹
+        // 맵오브젝트피킹 - 바닥으로사용
         else if (m_bGroundPickingMod)
         {
             if (m_bFirstGroundPick)
@@ -842,6 +1055,35 @@ void ImGui_Manager::LookAtSampleObject()
         // 카메라 원래대로 돌아가기
         CUR_SCENE->Get_MainCamera()->Get_Transform()->Set_WorldMat(m_matPreCamera);
     }
+}
+
+void ImGui_Manager::GeometryTest()
+{
+    for(int i=0; i<8; ++i)
+	{
+		shared_ptr<Mesh> WeedMesh = RESOURCES.Get<Mesh>(L"Point");
+
+		// 메시를 기반으로 벽오브젝트 생성
+		shared_ptr<GameObject> WeedObj = make_shared<GameObject>();
+		WeedObj->Set_Name(L"WeedObj");
+		WeedObj->GetOrAddTransform();
+        WeedObj->Get_Transform()->Set_State(Transform_State::POS, _float4{ (_float)i + 1.f, 0.f, 0.f, 1.f });
+
+		// 메시렌더러
+		shared_ptr<MeshRenderer> renderer = make_shared<MeshRenderer>(RESOURCES.Get<Shader>(L"Shader_Grass.fx"));
+		renderer->Set_Mesh(WeedMesh);
+
+        wstring WeedTextureName = L"Weed" + to_wstring(i);
+        shared_ptr<Material> material = RESOURCES.Get<Material>(WeedTextureName);
+        renderer->Set_Material(material);
+
+		WeedObj->Add_Component(renderer);
+
+        shared_ptr<WeedScript> WeedSc = make_shared<WeedScript>();
+        WeedObj->Add_Component(WeedSc);
+
+		EVENTMGR.Create_Object(WeedObj);
+	}
 }
 
 HRESULT ImGui_Manager::Load_SkyBoxTexture()
@@ -911,6 +1153,30 @@ HRESULT ImGui_Manager::Load_MapObjectBase()
     return S_OK;
 }
 
+void ImGui_Manager::Load_TerrainTile()
+{
+    wstring partsPath = L"..\\Resources\\Textures\\MapObject\\TerrainTile\\";
+    for (auto& entry : fs::recursive_directory_iterator(partsPath))
+    {
+
+        if (entry.is_directory())
+            continue;
+
+        if (entry.path().extension().wstring() != L".tga" && entry.path().extension().wstring() != L".TGA")
+            continue;
+
+        string fileName = entry.path().filename().string();
+        Utils::DetachExt(fileName);
+
+        // 타일의 텍스쳐이름을 리소스에 로드
+        wstring TileTexture = L"..\\Resources\\Textures\\MapObject\\TerrainTile\\";
+        TileTexture += Utils::ToWString(fileName) + L".tga";
+        RESOURCES.Load<Texture>(Utils::ToWString(fileName), TileTexture);
+        // 리스트에도 추가
+        m_TileNames.push_back(fileName);
+    }
+}
+
 HRESULT ImGui_Manager::Create_SelectObject()
 {
     // 현재 선택된 베이스오브젝트이름 가져오기
@@ -962,10 +1228,9 @@ shared_ptr<GameObject> ImGui_Manager::Create_MapObject(MapObjectScript::MapObjec
         shared_ptr<ModelRenderer> renderer = make_shared<ModelRenderer>(shader);
         CreateObject->Add_Component(renderer);
         renderer->Set_Model(model);
-        if (CreateDesc.bCullNone)
-            renderer->Set_PassType(ModelRenderer::PASS_MAPOBJECT_CULLNONE);
-        else
-            renderer->Set_PassType(ModelRenderer::PASS_MAPOBJECT);
+
+        renderer->Set_PassType((ModelRenderer::INSTANCE_PASSTYPE)CreateDesc.bCullNone);
+
          renderer->SetVec4(0, _float4(CreateDesc.fUVWeight));
     }
 
@@ -1018,7 +1283,7 @@ shared_ptr<GameObject> ImGui_Manager::Create_MapObject(MapObjectScript::MapObjec
     // 그림자, 블러, 컬링정보계산
     Bake(CreateObject);
 
-    CUR_SCENE->Add_GameObject(CreateObject);
+    EVENTMGR.Create_Object(CreateObject);
 
     return CreateObject;
 }
@@ -1063,7 +1328,7 @@ shared_ptr<GameObject> ImGui_Manager::Create_PointLight(LightInfo _ptltInfo)
 
         PointLight->Add_Component(lightCom);
     }
-    CUR_SCENE->Add_GameObject(PointLight);
+    EVENTMGR.Create_Object(PointLight);
 
 
     return PointLight;
@@ -1094,8 +1359,8 @@ void ImGui_Manager::Create_WallMesh()
 
     shared_ptr<GameObject> PreWall = CUR_SCENE->Get_GameObject(L"Wall");
     if (PreWall != nullptr)
-        CUR_SCENE->Remove_GameObject(PreWall);
-    CUR_SCENE->Add_GameObject(WallObject);
+        EVENTMGR.Delete_Object(PreWall);
+    EVENTMGR.Create_Object(WallObject);
 }
 
 void ImGui_Manager::Create_GroundMesh()
@@ -1121,8 +1386,8 @@ void ImGui_Manager::Create_GroundMesh()
     // 바닥 콜라이더 중복체크
     shared_ptr<GameObject> PrGround = CUR_SCENE->Get_GameObject(L"Ground");
     if (PrGround != nullptr)
-        CUR_SCENE->Remove_GameObject(PrGround);
-    CUR_SCENE->Add_GameObject(GroundObject);
+        EVENTMGR.Delete_Object(PrGround);
+    EVENTMGR.Create_Object(GroundObject);
 }
 
 void ImGui_Manager::Clear_WallMesh()
@@ -1152,10 +1417,229 @@ void ImGui_Manager::SetPlayerLookAtPosByPickingPos()
     m_PlayerLookAtPosition.y = m_PlayerCreatePosition.y;
 }
 
+void ImGui_Manager::Create_Terrain()
+{
+    // 터레인생성
+    shared_ptr<Terrain> terrain = make_shared<Terrain>();
+    terrain->CreateGrid(m_iTerrainSize[0], m_iTerrainSize[1]);
+
+    Create_Terrain(terrain, m_iTerrainSize[0], m_iTerrainSize[1]);
+}
+
+void ImGui_Manager::Create_Terrain(shared_ptr<Terrain> _pTerrainMesh, _int _iTerrainSizeX, _int _iTerrainSizeY)
+{
+    /// 지형오브젝트 생성
+    shared_ptr<GameObject> TerrainObject = make_shared<GameObject>();
+    TerrainObject->Set_Name(L"Terrain");
+    TerrainObject->GetOrAddTransform();
+
+    // 하이트맵 계산해서 메시에 적용하기
+    // TGA(HeightMap)텍스쳐를 가져와서 RGB값 모두 저장.
+    //{
+    //    // TGA 파일 경로 설정
+    //    const wchar_t* filePath = L"..\\Resources\\Textures\\MapObject\\TerrainTile\\HeightMap.tga";
+    //    // TGA 파일 로드
+    //    TexMetadata metadata;
+    //    ScratchImage image;
+    //    LoadFromTGAFile(filePath, &metadata, image);
+
+    //    // 픽셀 데이터 얻기
+    //    const auto* img = image.GetImage(0, 0, 0); // 첫 이미지 데이터 가져오기
+    //    // 픽셀 데이터에 접근하여 출력
+    //    const uint8_t* pixels = static_cast<const uint8_t*>(img->pixels);
+    //    size_t pixelSize = metadata.format == DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM ? 4 : 3; // RGBA 또는 RGB 픽셀 크기
+    //    size_t rowPitch = img->rowPitch;
+
+    //    // 모든픽셀의 색을 저장할 벡터
+    //    vector<_float4> pixelColors;
+    //    for (size_t i = 0; i < img->height ; ++i) {
+    //        for (size_t j = 0; j < img->width; ++j) {
+    //            size_t pixelIndex = i * rowPitch + j * pixelSize;
+    //            _float4 pixelColor = _float4{ static_cast<_float>(pixels[pixelIndex + 0]) , static_cast<_float>(pixels[pixelIndex + 1]), static_cast<_float>(pixels[pixelIndex + 2]), static_cast<_float>(pixels[pixelIndex + 3]) };
+    //            pixelColors.push_back(pixelColor);
+    //        }
+    //    }
+
+    //    // 정점들의 w
+    //    auto& vertices = _pTerrainMesh->Get_Geometry()->Get_Vertices();
+    //    auto tempVertices = vertices;
+    //    for (size_t i = 0; i < vertices.size(); ++i)
+    //    {
+    //        tempVertices[i].vPosition.y = pixelColors[i].z * 0.04;
+    //    }
+    //    _pTerrainMesh->Get_Geometry()->Set_Vertices(tempVertices);
+    //    _pTerrainMesh->Create_Buffer();
+    //}
+
+    // 메시렌더러
+    shared_ptr<MeshRenderer> renderer = make_shared<MeshRenderer>(RESOURCES.Get<Shader>(L"Shader_Terrain.fx"));
+    renderer->Set_Mesh(_pTerrainMesh);
+    //renderer->Set_Pass(18); // 터레인패스
+    renderer->SetInt(0, _iTerrainSizeX);
+    renderer->SetInt(1, _iTerrainSizeY);
+
+	//shared_ptr<TerrainRenderer> renderer = make_shared<TerrainRenderer>(RESOURCES.Get<Shader>(L"Shader_Terrain.fx"));
+	//renderer->CreateGrid(_iTerrainSizeX, _iTerrainSizeY);
+
+    // 디퓨즈텍스쳐
+    shared_ptr<Material> material = make_shared<Material>();
+    auto Grasstexture = RESOURCES.Get<Texture>(L"TileGrass");
+    if (Grasstexture == nullptr)
+    {
+        MSG_BOX("NoDiffuseTexture");
+        return;
+    }
+    material->Set_TextureMap(Grasstexture, TextureMapType::DIFFUSE);
+
+    // 노말텍스쳐
+    auto Normaltexture = RESOURCES.Get<Texture>(L"ForestGrass_01_N_ASB");
+    if (Normaltexture == nullptr)
+    {
+        MSG_BOX("NoNormalTexture");
+        return;
+    }
+    material->Set_TextureMap(Normaltexture, TextureMapType::NORMAL);
+
+    // Mask텍스쳐
+    auto Masktexture = RESOURCES.Get<Texture>(L"TileMask");
+    if (Masktexture == nullptr)
+    {
+        MSG_BOX("NoMaskTexture");
+        return;
+    }
+    material->Set_TextureMap(Masktexture, TextureMapType::TEXTURE7);
+
+    // Road텍스쳐
+    auto Roadtexture = RESOURCES.Get<Texture>(L"TileRoad");
+    if (Roadtexture == nullptr)
+    {
+        MSG_BOX("NoSubTexture");
+        return;
+    }
+    material->Set_TextureMap(Roadtexture, TextureMapType::TEXTURE8);
+
+	{
+		auto HeightMap = RESOURCES.GetOrAddTexture(L"HeightMap1", L"..\\Resources\\Textures\\MapObject\\TerrainTile\\HeightMap.png");
+		if (HeightMap == nullptr)
+		{
+			MSG_BOX("NoHeightTexture");
+			return;
+		}
+		material->Set_TextureMap(HeightMap, TextureMapType::TEXTURE9);
+	}
+
+    renderer->Set_Material(material);
+
+    // 메시를 통해 메시콜라이더 생성
+    shared_ptr<MeshCollider> pCollider = make_shared<MeshCollider>(*_pTerrainMesh.get());
+    TerrainObject->Add_Component(pCollider);
+    pCollider->Set_Activate(true);
+
+    TerrainObject->Add_Component(renderer);
+
+    // 터레인오브젝트 중복체크
+    shared_ptr<GameObject> PrTerrain = CUR_SCENE->Get_GameObject(L"Terrain");
+    if (PrTerrain != nullptr)
+        EVENTMGR.Delete_Object(PrTerrain);
+    EVENTMGR.Create_Object(TerrainObject);
+
+    m_pTerrain = TerrainObject;
+    // 터레인의 가로세로 정보 셰이더에 떤져주기
+    //m_pTerrain->Get_MeshRenderer()->SetVec2(0, _float2{ (_float)_iTerrainSizeX, (_float)_iTerrainSizeY });
+}
+
+void ImGui_Manager::Create_MaskTexture()
+{
+    ID3D11Texture2D* pTexture2D = { nullptr };
+
+    D3D11_TEXTURE2D_DESC TextureDesc;
+    ZeroMemory(&TextureDesc, sizeof(D3D11_TEXTURE2D_DESC));
+
+    TextureDesc.Width = 256;
+    TextureDesc.Height = 256;
+    TextureDesc.MipLevels = 1;
+    TextureDesc.ArraySize = 1;
+    TextureDesc.Format = DXGI_FORMAT_R16G16B16A16_UNORM;
+
+    TextureDesc.SampleDesc.Quality = 0;
+    TextureDesc.SampleDesc.Count = 1;
+
+    // 맵언맵을 사용하기위해 다이나믹.
+    TextureDesc.Usage = D3D11_USAGE_DYNAMIC;
+    // 용도 - 쉐이더리소스
+    TextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    TextureDesc.CPUAccessFlags = D3D10_CPU_ACCESS_WRITE;
+    TextureDesc.MiscFlags = 0;
+
+    uint16_t* pPixel = new uint16_t[TextureDesc.Width * TextureDesc.Height * 4];
+
+    D3D11_SUBRESOURCE_DATA SubResourceData;
+    ZeroMemory(&SubResourceData, sizeof SubResourceData);
+
+    SubResourceData.pSysMem = pPixel;
+    // 한줄짜리 데이터가 아니기 때문에 한줄의 사이즈를 지정해줌.
+    SubResourceData.SysMemPitch = TextureDesc.Width * 4;
+
+    if (FAILED(DEVICE->CreateTexture2D(&TextureDesc, &SubResourceData, &pTexture2D)))
+    {
+        delete[] pPixel;
+        return;
+    }
+
+    auto& terrainVertices = CUR_SCENE->Get_GameObject(L"Terrain")->Get_Collider()->Get_Meshes().front()->Get_Geometry()->Get_Vertices();
+   
+    for (_uint i = 0; i < TextureDesc.Height; ++i)
+    {
+        for (_uint j = 0; j < TextureDesc.Width; j++)
+        {
+            _uint iIndex = i * TextureDesc.Width + j;
+
+            _float terrainHeight = terrainVertices[(TextureDesc.Width - i - 1) * TextureDesc.Width + j].vPosition.y + 50.f;
+            terrainHeight *= 0.01f;
+           pPixel[iIndex * 4 +0] = static_cast<std::uint16_t>(terrainHeight * 65535.0f);
+           pPixel[iIndex * 4 +1] = static_cast<std::uint16_t>(terrainHeight * 65535.0f);
+           pPixel[iIndex * 4 +2] = static_cast<std::uint16_t>(terrainHeight * 65535.0f);
+           pPixel[iIndex * 4 +3] =65535.0f;
+        }
+    }
+
+    D3D11_MAPPED_SUBRESOURCE MappedSubResource;
+
+    CONTEXT->Map(pTexture2D, 0, D3D11_MAP_WRITE_DISCARD, 0, &MappedSubResource);
+
+    memcpy(MappedSubResource.pData, pPixel, sizeof(uint16_t) * TextureDesc.Width * TextureDesc.Height * 4);
+
+    CONTEXT->Unmap(pTexture2D, 0);
+
+    ScratchImage scratchImage;
+    CaptureTexture(DEVICE.Get(), CONTEXT.Get(), pTexture2D, scratchImage);
+
+    wstring wstrName = L"..\\Resources\\Textures\\MapObject\\TerrainTile\\HeightMap.png";
+    auto result = SaveToWICFile(scratchImage.GetImages(),scratchImage.GetImageCount(),WIC_FLAGS_NONE, GetWICCodec(WIC_CODEC_PNG), wstrName.data());
+
+    delete[] pPixel;
+}
+
+void ImGui_Manager::Set_TerrainHeight()
+{
+    auto& vtx = m_pTerrain->Get_MeshRenderer()->Get_Mesh()->Get_Geometry()->Get_Vertices();
+    auto tempVTX = vtx;
+    for (auto& VB : tempVTX)
+    {
+        m_vTerrainBrushPosition.y = VB.vPosition.y; // 같은높이라고 가정.
+        if ((VB.vPosition - m_vTerrainBrushPosition).Length() <= m_fTerrainBrushRadius)
+        {
+            VB.vPosition.y = m_fTerrainSetHeight;
+        }
+    }
+    m_pTerrain->Get_MeshRenderer()->Get_Mesh()->Get_Geometry()->Set_Vertices(tempVTX);
+    m_pTerrain->Get_MeshRenderer()->Get_Mesh()->Create_Buffer();
+}
+
 HRESULT ImGui_Manager::Delete_PointLight()
 {
     // 1. 현재씬에서 제거
-    CUR_SCENE->Remove_GameObject(m_pPointLightObjects[m_iPointLightIndex]);
+    EVENTMGR.Delete_Object(m_pPointLightObjects[m_iPointLightIndex]);
     // 2. 현재 선택된 오브젝트를 벡터에서 삭제
     {
         auto iter = m_pPointLightObjects.begin();
@@ -1191,7 +1675,7 @@ HRESULT ImGui_Manager::Delete_PointLight()
 HRESULT ImGui_Manager::Delete_MapObject()
 {
     // 1. 현재 선택된 오브젝트를 씬에서 삭제
-    CUR_SCENE->Remove_GameObject(m_pMapObjects[m_iObjects]);
+    EVENTMGR.Delete_Object(m_pMapObjects[m_iObjects]);
 
     // 2. 현재 선택된 오브젝트를 벡터에서 삭제
     {
@@ -1295,6 +1779,8 @@ HRESULT ImGui_Manager::Save_MapObject()
 
     // 애님오브젝트 인덱스관리
     _int iAnimObjectIndex = 0;
+    // 논애님오브젝트 인덱스관리
+    _int iNonAnimObjectIndex = 0;
     // 2. 오브젝트의 MapObjectDesc 모든정보 저장
     for (_uint i = 0; i < m_pMapObjects.size(); ++i)
     {
@@ -1312,6 +1798,21 @@ HRESULT ImGui_Manager::Save_MapObject()
             string strModelName = MapDesc.strName.substr(0, iPureNameSize);
 
             MapDesc.strName = strModelName + "-" + to_string(iAnimObjectIndex++);
+        }
+        else
+            // 논애님모델은 논애님숫자를 붙임
+        {
+            // 고유번호를 제거하여 모델명을 얻어옴
+            _int iPureNameSize = 0;
+            while (MapDesc.strName[iPureNameSize] != '-' && iPureNameSize < MapDesc.strName.size())
+            {
+                ++iPureNameSize;
+            }
+            string strModelName = MapDesc.strName.substr(0, iPureNameSize);
+            // 비법코드 ( -가 안나왔을때 \0이 들어가서 뭔가가 뭔가한 오류 해결하는 비법코드
+            if (strModelName.back() == '\0')
+                strModelName.pop_back();
+            MapDesc.strName = strModelName + "-" + to_string(iNonAnimObjectIndex++);
         }
         file->Write<string>(MapDesc.strName);
         file->Write<_float>(MapDesc.fUVWeight);
@@ -1348,7 +1849,7 @@ HRESULT ImGui_Manager::Save_MapObject()
         }
         file->Write<_float3>(MapDesc.CullPos);
         file->Write<_float>(MapDesc.CullRadius);
-        file->Write<_bool>(MapDesc.bCullNone);
+        file->Write<_char>(MapDesc.bCullNone);
 
         file->Write<_float4x4>(MapDesc.matDummyData);
     }
@@ -1412,7 +1913,7 @@ HRESULT ImGui_Manager::Load_MapObject()
     // 기존의 포인트라이트 모두삭제 및 클리어
     _int iPtltSize = (_int)m_pPointLightObjects.size();
     for (auto& ptltObj : m_pPointLightObjects)
-        CUR_SCENE->Remove_GameObject(ptltObj);
+        EVENTMGR.Delete_Object(ptltObj);
     m_pPointLightObjects.clear();
     m_strPointLightList.clear();
     m_iPointLightIndex = 0;
@@ -1421,7 +1922,7 @@ HRESULT ImGui_Manager::Load_MapObject()
     _uint iSize = (_int)m_pMapObjects.size();
     // 1. 기존의 모든오브젝트 삭제 및 Clear
     for (auto& mapObj : m_pMapObjects)
-        CUR_SCENE->Remove_GameObject(mapObj);
+        EVENTMGR.Delete_Object(mapObj);
     m_pMapObjects.clear();
     m_strObjectName.clear();
     m_strObjectNamePtr.clear();
@@ -1574,7 +2075,7 @@ HRESULT ImGui_Manager::Load_MapObject()
         }
         file->Read<_float3>(MapDesc.CullPos);
         file->Read<_float>(MapDesc.CullRadius);
-        file->Read<_bool>(MapDesc.bCullNone);
+        file->Read<_char>(MapDesc.bCullNone);
         file->Read<_float4x4>(MapDesc.matDummyData);
         
         shared_ptr<GameObject> CreateObject = Create_MapObject(MapDesc);
@@ -1684,6 +2185,212 @@ HRESULT ImGui_Manager::Save_ModelNames()
     return S_OK;
 }
 
+HRESULT ImGui_Manager::Save_TerrainData()
+{
+    // 세이브 파일 이름으로 저장하기
+    string strFilePath = "..\\Resources\\MapData\\TerrainData.TRdat";
+    shared_ptr<FileUtils> file = make_shared<FileUtils>();
+    file->Open(Utils::ToWString(strFilePath), FileMode::Write);
+
+    shared_ptr<GameObject> TerrainObject = CUR_SCENE->Get_GameObject(L"Terrain");
+    if (TerrainObject == nullptr)
+    {
+        MSG_BOX("NoTerrainObject");
+        return E_FAIL;
+    }
+    auto TerrainGeometry = TerrainObject->Get_MeshRenderer()->Get_Mesh()->Get_Geometry();
+
+    // 버텍스의 개수와 포지션,노말 저장
+    auto& TerrainVertices = TerrainGeometry->Get_Vertices();
+    file->Write<_int>((_int)TerrainVertices.size());
+    for (size_t i = 0; i < TerrainVertices.size(); ++i)
+    {
+        file->Write<_float3>(TerrainVertices[i].vPosition);
+        file->Write<_float2>(TerrainVertices[i].vTexCoord);
+        file->Write<_float3>(TerrainVertices[i].vNormal);
+        file->Write<_float3>(TerrainVertices[i].vTangent);
+    }
+    // 인덱스의 개수 저장
+    auto& TerrainIndices = TerrainGeometry->Get_Indices();
+    file->Write<_int>((_int)TerrainIndices.size());
+    for (size_t i = 0; i < TerrainIndices.size(); i++)
+    {
+        file->Write<_uint>(TerrainIndices[i]);
+    }
+
+    // 가로세로 개수
+    file->Write<_int>(m_iTerrainSize[0]);
+    file->Write<_int>(m_iTerrainSize[1]);
+
+    MSG_BOX("Save_Complete");
+
+    return S_OK;
+}
+
+HRESULT ImGui_Manager::LoadAndCreateTerrain()
+{
+    shared_ptr<Terrain> loadedTerrain = make_shared<Terrain>();
+
+    string strFilePath = "..\\Resources\\MapData\\TerrainData.TRdat";
+    shared_ptr<FileUtils> file = make_shared<FileUtils>();
+    file->Open(Utils::ToWString(strFilePath), FileMode::Read);
+
+    vector<VTXTEXNORTANDATA> loadedVertices;
+    // 버텍스의 개수와 포지션,노말 로드
+    loadedVertices.resize(file->Read<_int>());
+    for (size_t i = 0; i < loadedVertices.size(); ++i)
+    {
+        file->Read<_float3>(loadedVertices[i].vPosition);
+        file->Read<_float2>(loadedVertices[i].vTexCoord);
+        file->Read<_float3>(loadedVertices[i].vNormal);
+        file->Read<_float3>(loadedVertices[i].vTangent);
+    }
+
+    // 인덱스의 개수와 정보 로드
+    vector<_uint> loadedIndices;
+    // 버텍스의 개수와 포지션,노말 로드
+    loadedIndices.resize(file->Read<_int>());
+    for (size_t i = 0; i < loadedIndices.size(); i++)
+    {
+        file->Read<_uint>(loadedIndices[i]);
+    }
+
+    _int sizeX = 0;
+    _int sizeY = 0;
+    file->Read<_int>(sizeX);
+    file->Read<_int>(sizeY);
+    m_iTerrainSize[0] = sizeX;
+    m_iTerrainSize[1] = sizeY;
+
+    // 터레인버퍼생성
+    loadedTerrain->Get_Geometry()->Set_Vertices(loadedVertices);
+    loadedTerrain->Get_Geometry()->Set_Indices(loadedIndices);
+    loadedTerrain->Create_Buffer();
+
+    Create_Terrain(loadedTerrain, sizeX, sizeY);
+
+    return S_OK;
+}
+
+void ImGui_Manager::Cal_NormalTangent()
+{
+	auto terrain = CUR_SCENE->Get_GameObject(L"Terrain");
+
+	auto mesh = terrain->Get_MeshRenderer()->Get_Mesh();
+	auto& indices = mesh->Get_Geometry()->Get_Indices();
+	auto& vertices = mesh->Get_Geometry()->Get_Vertices();
+
+	for (_int i = 0; i < _int(indices.size());)
+	{
+		_int iIndex[3] = { indices[i++] ,indices[i++] ,indices[i++] };
+		_float3 vVtxPos[3] = {
+			  vertices[iIndex[0]].vPosition,
+			  vertices[iIndex[1]].vPosition,
+			  vertices[iIndex[2]].vPosition
+		};
+
+		_float3 vDir[3] = { vVtxPos[1] - vVtxPos[0] ,vVtxPos[2] - vVtxPos[1] ,vVtxPos[0] - vVtxPos[2] };
+
+		_float3 vNormal = vDir[0].Cross(vDir[1]);
+		vNormal.Normalize();
+        _float3 vTangent = vDir[0];
+        vTangent.Normalize();
+
+		vertices[iIndex[0]].vNormal = vNormal;
+		vertices[iIndex[1]].vNormal = vNormal;
+		vertices[iIndex[2]].vNormal = vNormal;
+
+        vertices[iIndex[0]].vTangent = vTangent;
+        vertices[iIndex[1]].vTangent = vTangent;
+        vertices[iIndex[2]].vTangent = vTangent;
+
+	}
+
+    mesh->Create_Buffer();
+
+}
+
+void ImGui_Manager::Create_WeedRegion()
+{
+    Create_Weed(m_PickingPos);
+}
+
+void ImGui_Manager::Create_Weed(_float3 _CreatePos)
+{
+    _int TerrainSize = 256;
+    // 지형의 바깥이라면 return
+    if (_CreatePos.x <= 0 || _CreatePos.x >= TerrainSize ||
+        _CreatePos.z <= 0 || _CreatePos.z >= TerrainSize)
+        return;
+
+    _float3 TargetPos = _CreatePos;
+    // 아래로 쏠거기때문에 하늘로 올려버리기
+    TargetPos.y = 100.f;
+
+    //auto& TerrainColliderMesh = CUR_SCENE->Get_GameObject(L"Terrain")->Get_Collider()->Get_Meshes();
+    auto TerrainColliderMesh = CUR_SCENE->Get_GameObject(L"Terrain")->Get_MeshRenderer()->Get_Mesh();
+    auto& Vertices = TerrainColliderMesh->Get_Geometry()->Get_Vertices();
+    auto& Indices = TerrainColliderMesh->Get_Geometry()->Get_Indices();
+
+    Ray ray = Ray(_CreatePos, _float3{ 0.f, -1.f, 0.f });
+    
+	// 연산 속도를 위해 정확한 버텍스의 위치를 바로 찾아가기
+    // 왼쪽아래버텍스의 인덱스
+	_int LDindex = (_int)_CreatePos.x * TerrainSize + (_int)_CreatePos.z;
+
+    _float fDistance = 0.f;
+    _float3 normal;
+    // 타일과 피킹하여 최종생성되는 풀의위치
+    _float3 FinalCreatePos;
+
+    for(size_t i=0; i<2; ++i)
+    {
+        // 해당하는칸의 (0,1,2),(0,2,3)과 비교
+        _float3 vVtxPos[3] = {
+           Vertices[LDindex + TerrainSize].vPosition,
+           Vertices[LDindex + TerrainSize + 1 + i].vPosition,
+           Vertices[LDindex + 1 + i].vPosition
+        };
+        if (!ray.Intersects(vVtxPos[0], vVtxPos[1], vVtxPos[2], fDistance))
+            continue;
+
+        // 노말저장
+        normal = XMVector3Normalize(XMVector3Cross(vVtxPos[1] - vVtxPos[0], vVtxPos[2] - vVtxPos[0]));
+    }
+
+    if(fDistance == 0.f)
+    {
+        MSG_BOX("RayIntersectsFail");
+        return;
+    }
+
+    // 풀의 생성위치.
+    FinalCreatePos = TargetPos + _float3{ 0.f, -1.f, 0.f } * fDistance;
+
+    shared_ptr<Mesh> WeedMesh = RESOURCES.Get<Mesh>(L"Point");
+
+    // 메시를 기반으로 벽오브젝트 생성
+    shared_ptr<GameObject> WeedObj = make_shared<GameObject>();
+    WeedObj->Set_Name(L"WeedObj");
+    WeedObj->GetOrAddTransform();
+    WeedObj->Get_Transform()->Set_State(Transform_State::POS, _float4{ FinalCreatePos, 1.f });
+
+    // 메시렌더러
+    shared_ptr<MeshRenderer> renderer = make_shared<MeshRenderer>(RESOURCES.Get<Shader>(L"Shader_Grass.fx"));
+    renderer->Set_Mesh(WeedMesh);
+
+    wstring WeedName = Utils::ToWString(m_strWeedCatalogue[m_iCurrentWeedIndex]);
+    shared_ptr<Material> material = RESOURCES.Get<Material>(WeedName);
+    renderer->Set_Material(material);
+
+    WeedObj->Add_Component(renderer);
+
+    shared_ptr<WeedScript> WeedSc = make_shared<WeedScript>();
+    WeedObj->Add_Component(WeedSc);
+
+    EVENTMGR.Create_Object(WeedObj);
+}
+
 _float4 ImGui_Manager::Compute_CullingData(shared_ptr<GameObject>& _pGameObject)
 {
     // 모델을 받아와서 컬링포지션과 길이를 계산하여 반환 float4(_float(Pos), _float(Radius))
@@ -1777,7 +2484,7 @@ void ImGui_Manager::Create_SampleObjects()
         renderer->Set_PassType(ModelRenderer::PASS_MAPOBJECT);
         renderer->SetVec4(0, _float4(1.f));
         
-        CUR_SCENE->Add_GameObject(m_SampleObject);
+        EVENTMGR.Create_Object(m_SampleObject);
 
         m_fSampleModelCullSize = Compute_CullingData(m_SampleObject).w;
 }
@@ -2011,8 +2718,8 @@ void ImGui_Manager::Frame_ModelObj()
     {
         Show_Models();
         Show_ModelInfo();
-
-
+        Select_ModelAnim();
+        Set_Transform();
 
         EndTabBar();
     }
@@ -2030,29 +2737,20 @@ void ImGui_Manager::Show_Models()
 		vector<string> ModelNames;
 		if (TreeNode("Character"))
 		{
-			if (TreeNode("Npc"))
+			string assetsPath = "../Resources/Models/Character/";
+
+			for (auto& entry : fs::recursive_directory_iterator(assetsPath))
 			{
-				if (TreeNode("Granseed"))
-				{
-					string assetsPath = "../Resources/Models/Character/Npc/Granseed/";
+				if (entry.is_directory())
+					continue;
 
-					for (auto& entry : fs::recursive_directory_iterator(assetsPath))
-					{
-						if (entry.is_directory())
-							continue;
+				if (entry.path().extension().wstring() != L".Model" && entry.path().extension().wstring() != L".model")
+					continue;
 
-						if (entry.path().extension().wstring() != L".Model" && entry.path().extension().wstring() != L".model")
-							continue;
+				string fileName = entry.path().filename().string();
+				Utils::DetachExt(fileName);
 
-						string fileName = entry.path().filename().string();
-						Utils::DetachExt(fileName);
-
-						ModelNames.push_back(fileName);
-					}
-
-					TreePop();
-				}
-				TreePop();
+				ModelNames.push_back(fileName);
 			}
 			TreePop();
 		}
@@ -2073,21 +2771,40 @@ void ImGui_Manager::Show_Models()
 			}
 			string name = objName;
 			obj->Set_Name(Utils::ToWString(name));
-			CUR_SCENE->Add_GameObject(obj);
-			m_pAnimModels.push_back(obj);
-            m_pAnimModelInfo.push_back(ObjectMoveInfo());
+            EVENTMGR.Create_Object(obj);
+			m_pAnimModels.push_back(make_pair(obj, ObjectMoveInfo()));
 		}
 
 		vector<string> objNames;
 
 		for (auto& obj : m_pAnimModels)
-			objNames.push_back(Utils::ToString(obj->Get_Name()));
+			objNames.push_back(Utils::ToString(obj.first->Get_Name()));
 
 		ListBox("##Object List", &m_iCurrentObjectIndex, VectorOfStringGetter, &objNames, int(objNames.size()));
 
 		if (Button("Select Obj"))
-			m_pControlObjects = m_pAnimModels[m_iCurrentObjectIndex];
+			m_pControlObjects = m_pAnimModels[m_iCurrentObjectIndex].first;
 
+        SameLine();
+        if (Button("Delete Obj"))
+        {
+            for (auto iter = m_pAnimModels.begin(); iter != m_pAnimModels.end();)
+            {
+                if (iter->first->Get_Name() == Utils::ToWString(objNames[m_iCurrentObjectIndex]))
+                {
+                    EVENTMGR.Delete_Object(iter->first);
+                    iter = m_pAnimModels.erase(iter);
+                }
+                else iter++;
+             }
+
+        }
+
+
+		Separator();
+		Save_Files();
+        SameLine();
+        Load_Files();
         EndTabItem();
 	}
 
@@ -2108,7 +2825,8 @@ void ImGui_Manager::Show_ModelInfo()
         fsmList.push_back("POTION_FSM");
         fsmList.push_back("GUARD1_FSM");
         fsmList.push_back("GUARD2_FSM");
-        fsmList.push_back("TRAVLER_FSM");
+        fsmList.push_back("TRAVELER_FSM");
+        fsmList.push_back("CHILDREN_FSM");
 
         static _int tmp =0;
         RadioButton("minMoveArrayPos",&tmp,0);
@@ -2120,22 +2838,25 @@ void ImGui_Manager::Show_ModelInfo()
         if (Button("Set ArrayPos"))
         {
             if (tmp == 0)
-                m_pAnimModelInfo[m_iCurrentObjectIndex].minMoveArrayPos = vPickPos;
+                m_pAnimModels[m_iCurrentObjectIndex].second.minMoveArrayPos = vPickPos;
             else
-                m_pAnimModelInfo[m_iCurrentObjectIndex].maxMoveArrayPos = vPickPos;
+                m_pAnimModels[m_iCurrentObjectIndex].second.maxMoveArrayPos = vPickPos;
             
         }
 
 		ListBox("##FSM List", &m_iCurrentFSMIndex, VectorOfStringGetter, &fsmList, int(fsmList.size()));
         Text(("FSM : " + fsmList[m_iCurrentFSMIndex]).c_str());
         if (Button("Set FSM"))
-            m_pAnimModelInfo[m_iCurrentObjectIndex].eFSMIndex = m_iCurrentFSMIndex;
+            m_pAnimModels[m_iCurrentObjectIndex].second.eFSMIndex = m_iCurrentFSMIndex;
 
         SeparatorText("Cur Info");
-        Text((" FSM State : " + fsmList[m_pAnimModelInfo[m_iCurrentObjectIndex].eFSMIndex]).c_str());
-        Text(("min Array Pos : " + to_string(m_pAnimModelInfo[m_iCurrentObjectIndex].minMoveArrayPos.x) + ", " + to_string(m_pAnimModelInfo[m_iCurrentObjectIndex].minMoveArrayPos.y) + ", " + to_string(m_pAnimModelInfo[m_iCurrentObjectIndex].minMoveArrayPos.z)).c_str());
-        Text(("max Array Pos : " + to_string(m_pAnimModelInfo[m_iCurrentObjectIndex].maxMoveArrayPos.x) + ", " + to_string(m_pAnimModelInfo[m_iCurrentObjectIndex].maxMoveArrayPos.y) + ", " + to_string(m_pAnimModelInfo[m_iCurrentObjectIndex].maxMoveArrayPos.z)).c_str());
-
+        Text((" FSM State : " + fsmList[m_pAnimModels[m_iCurrentObjectIndex].second.eFSMIndex]).c_str());
+        Text(("min Array Pos : " + to_string(m_pAnimModels[m_iCurrentObjectIndex].second.minMoveArrayPos.x) + ", " + to_string(m_pAnimModels[m_iCurrentObjectIndex].second.minMoveArrayPos.y) + ", " + to_string(m_pAnimModels[m_iCurrentObjectIndex].second.minMoveArrayPos.z)).c_str());
+        Text(("max Array Pos : " + to_string(m_pAnimModels[m_iCurrentObjectIndex].second.maxMoveArrayPos.x) + ", " + to_string(m_pAnimModels[m_iCurrentObjectIndex].second.maxMoveArrayPos.y) + ", " + to_string(m_pAnimModels[m_iCurrentObjectIndex].second.maxMoveArrayPos.z)).c_str());
+       
+        Checkbox("Is Moving", &m_pAnimModels[m_iCurrentObjectIndex].second.bMoving);
+        string strTmp = m_pAnimModels[m_iCurrentObjectIndex].second.bMoving ? "Move" : "NonMove";
+        Text(("Move State : " + strTmp).c_str());
         if (Button("Look At"))
         {
             _float3 vPos = m_PickingPos;
@@ -2145,12 +2866,50 @@ void ImGui_Manager::Show_ModelInfo()
         }
 
 
-        Separator();
-        Save_Files();
+        
+
+
 
         EndTabItem();
     }
 
+}
+
+void ImGui_Manager::Select_ModelAnim()
+{
+	if (m_pControlObjects.expired())
+		return;
+
+    if (BeginTabItem("Anim Info"))
+    {
+        vector<string> animList;
+
+        for (auto& anim : m_pControlObjects.lock()->Get_Model()->Get_Animations())
+            animList.push_back(Utils::ToString(anim->name));
+
+        ListBox("##Anim List", &m_iCurrentAnimIndex, VectorOfStringGetter, &animList, int(animList.size()));
+
+        if (Button("Set Anim"))
+        {
+            m_pControlObjects.lock()->Get_Animator()->Set_CurrentAnim(Utils::ToWString(animList[m_iCurrentAnimIndex]), true, 1.f);
+        }
+
+        EndTabItem();
+    }
+}
+
+void ImGui_Manager::Set_Transform()
+{
+	if (m_pControlObjects.expired())
+		return;
+    if (BeginTabItem("Transform Info"))
+    {
+        _float3 vPos = m_pControlObjects.lock()->Get_Transform()->Get_State(Transform_State::POS).xyz();
+        DragFloat3("Pos", (_float*)&vPos, 0.05f);
+        m_pControlObjects.lock()->Get_Transform()->Set_State(Transform_State::POS, _float4(vPos, 1.f));
+
+        EndTabItem();
+    }
 }
 
 void ImGui_Manager::Save_Files()
@@ -2170,14 +2929,138 @@ void ImGui_Manager::Save_Files()
         file->Write<_int>(_int(m_pAnimModels.size()));// count
         for (_int i = 0; i < _int(m_pAnimModels.size()); ++i)
         {
-            auto& gameObject = m_pAnimModels[i];
-            auto& gameObjectInfo = m_pAnimModelInfo[i];
+            auto& gameObject = m_pAnimModels[i].first;
+            auto& gameObjectInfo = m_pAnimModels[i].second;
             file->Write<string>(Utils::ToString(gameObject->Get_Name()));
             file->Write<string>(Utils::ToString(gameObject->Get_Model()->Get_ModelTag()));
+            ;
+
+            file->Write<_uint>(gameObject->Get_Animator()->Get_TweenDesc().curr.animIndex);
             file->Write<_float3>(gameObject->Get_Transform()->Get_State(Transform_State::POS).xyz());
+            file->Write<Quaternion>(gameObject->Get_Transform()->Get_Rotation());
+            file->Write<_bool>(gameObjectInfo.bMoving);
             file->Write<_int>(gameObjectInfo.eFSMIndex);
+
+            if (gameObjectInfo.minMoveArrayPos.x > gameObjectInfo.maxMoveArrayPos.x)
+                swap(gameObjectInfo.minMoveArrayPos.x, gameObjectInfo.maxMoveArrayPos.x);
+
+			if (gameObjectInfo.minMoveArrayPos.y > gameObjectInfo.maxMoveArrayPos.y)
+				swap(gameObjectInfo.minMoveArrayPos.y, gameObjectInfo.maxMoveArrayPos.y);
+			if (gameObjectInfo.minMoveArrayPos.z > gameObjectInfo.maxMoveArrayPos.x)
+				swap(gameObjectInfo.minMoveArrayPos.z, gameObjectInfo.maxMoveArrayPos.z);
+
             file->Write<_float3>(gameObjectInfo.minMoveArrayPos);
             file->Write<_float3>(gameObjectInfo.maxMoveArrayPos);
         }
+    }
+}
+
+void ImGui_Manager::Load_Files()
+{
+    vector<string> files;
+    string path = "../Resources/MapData/";
+    for (auto& entry : fs::recursive_directory_iterator(path))
+    {
+		if (entry.is_directory())
+			continue;
+
+		if (entry.path().extension().wstring() != L".subdata")
+			continue;
+
+        string filename = entry.path().filename().string();
+        Utils::DetachExt(filename);
+        
+        files.push_back(filename);
+
+    }
+    static _int index = 0;
+
+    ListBox("##File List", &index, VectorOfStringGetter, &files, int(files.size()));
+
+    if (Button("Load"))
+    {
+        wstring finalPath = L"../Resources/MapData/" + Utils::ToWString(files[index]) + L".subdata";
+		shared_ptr<FileUtils> file = make_shared<FileUtils>();
+		file->Open(finalPath, FileMode::Read);
+
+		_int count = file->Read<_int>();
+		for (_int i = 0; i < count; ++i)
+		{
+			shared_ptr<GameObject> obj = make_shared<GameObject>();
+			obj->GetOrAddTransform();
+			obj->Set_Name(Utils::ToWString(file->Read<string>()));
+
+			string modelTag = file->Read<string>();
+			shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
+			shared_ptr<ModelAnimator> animator = make_shared<ModelAnimator>(shader);
+			animator->Set_Model(RESOURCES.Get<Model>(Utils::ToWString(modelTag)));
+			obj->Add_Component(animator);
+
+			animator->Set_CurrentAnim(file->Read<_uint>(), true, 1.f);
+			obj->GetOrAddTransform()->Set_State(Transform_State::POS, _float4(file->Read<_float3>(), 1.f));
+			obj->GetOrAddTransform()->Set_Quaternion(file->Read<Quaternion>());
+
+			_bool isMoving = file->Read<_bool>();
+			_int iFSMIndex = file->Read<_int>();
+			_float3 vMinPos = file->Read<_float3>();
+			_float3 vMaxPos = file->Read<_float3>();
+
+            EVENTMGR.Create_Object(obj);
+
+			m_pAnimModels.push_back(make_pair(obj, ObjectMoveInfo{ isMoving,iFSMIndex,vMinPos,vMaxPos }));
+
+		}
+    }
+}
+
+void ImGui_Manager::Load_Water()
+{
+    //shared_ptr<GameObject> obj = make_shared<GameObject>();
+    //obj->GetOrAddTransform()->Set_State(Transform_State::POS, _float4{ 128.f, -20.f, 128.f, 1.f });
+    //obj->GetOrAddTransform()->Scaled(_float3{ 3.f, 1.f, 3.f });
+    //shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
+    //shared_ptr<ModelRenderer> renderer = make_shared<ModelRenderer>(shader);
+    //shared_ptr<Model> model = RESOURCES.Get<Model>(L"Water_Plane");
+    //model->Get_Materials().front()->Set_TextureMap(RESOURCES.GetOrAddTexture(L"WaterDiffuse", L"..\\Resources\\Textures\\MapObject\\Field\\T_Boom_000_a.tga"), TextureMapType::DIFFUSE);
+    //model->Get_Materials().front()->Set_TextureMap(RESOURCES.GetOrAddTexture(L"WaterNormal", L"..\\Resources\\Textures\\MapObject\\Field\\T_chicken_meet_001.tga"), TextureMapType::NORMAL);
+    //model->Get_Materials().front()->Set_TextureMap(RESOURCES.GetOrAddTexture(L"WaterDistortion", L"..\\Resources\\Textures\\MapObject\\Field\\T_Perlin_Noise_M.tga"), TextureMapType::DISTORTION);
+    //renderer->Set_PassType(ModelRenderer::PASS_WATER);
+    //renderer->Set_Model(model);
+    //obj->Add_Component(renderer);
+    //obj->Add_Component(make_shared<WaterUVSliding>());
+    //obj->Set_Name(L"Ocean");
+    //CUR_SCENE->Add_GameObject_Front(obj);
+
+
+    shared_ptr<GameObject> obj = make_shared<GameObject>();
+    obj->GetOrAddTransform()->Scaled(_float3(120.f));
+    obj->GetOrAddTransform()->Set_State(Transform_State::POS, _float4(-450.f, -20.f, -450.f, 1.f));
+    shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Water.fx");
+    shared_ptr<MeshRenderer> renderer = make_shared<MeshRenderer>(shader);
+    {
+        shared_ptr<Mesh> mesh = make_shared<Mesh>();
+        mesh->CreateGrid(40, 40);
+        renderer->Set_Mesh(mesh);
+    }
+    {
+        shared_ptr<Material> material = make_shared<Material>();
+        material->Set_TextureMap(RESOURCES.GetOrAddTexture(L"WaterDiffuse", L"..\\Resources\\Textures\\MapObject\\Field\\T_Boom_000_a.tga"), TextureMapType::DIFFUSE);
+        material->Set_TextureMap(RESOURCES.GetOrAddTexture(L"WaterNormal", L"..\\Resources\\Textures\\MapObject\\Field\\T_chicken_meet_001.png"), TextureMapType::NORMAL);
+        material->Set_TextureMap(RESOURCES.GetOrAddTexture(L"WaterDistortion", L"..\\Resources\\Textures\\MapObject\\Field\\T_Perlin_Noise_M.tga"), TextureMapType::DISTORTION);
+
+        renderer->Set_Material(material);
+    }
+    obj->Set_Name(L"Water_Plane");
+    obj->Add_Component(renderer);
+    obj->Add_Component(make_shared<WaterUVSliding>());
+    CUR_SCENE->Add_GameObject_Front(obj);
+}
+
+void ImGui_Manager::Load_WeedNames()
+{
+    for (size_t i = 0; i < 8; i++)
+    {
+        string WeedName = "Weed" + to_string(i);
+        m_strWeedCatalogue.push_back(WeedName);
     }
 }

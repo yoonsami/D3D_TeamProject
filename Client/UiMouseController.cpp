@@ -3,6 +3,8 @@
 
 #include "MeshRenderer.h"
 
+_bool g_bIsCanMouseMove = true;
+
 UiMouseController::UiMouseController()
 {
 }
@@ -16,7 +18,7 @@ HRESULT UiMouseController::Init()
         return S_OK;
 
     m_bIsInit = true;
-
+    
     m_fMaxTime = 0.25f;
     m_fCheckTime = 0.f;
     m_fRatio = 1.f / m_fMaxTime;
@@ -44,27 +46,35 @@ void UiMouseController::Tick()
     if (KEYTAP(KEY_TYPE::LALT))
         Change_Mouse_State();
 
-    if (true == m_bIsCanMove)
+    if (true == g_bIsCanMouseMove)
         Change_Mouse_Pos();
 
-    if (true == m_bIsCanMove && KEYTAP(KEY_TYPE::LBUTTON))
+    if (true == g_bIsCanMouseMove && KEYTAP(KEY_TYPE::LBUTTON))
         Start_Effect();
 
     if (STATE::START == m_eState)
         Start();
 }
 
+void UiMouseController::Change_Mouse_State(_bool bValue)
+{
+    if (bValue == g_bIsCanMouseMove)
+        return;
+
+    Change_Mouse_State();
+}
+
 void UiMouseController::Change_Mouse_State()
 {
-    m_bIsCanMove = !m_bIsCanMove;
+    g_bIsCanMouseMove = !g_bIsCanMouseMove;
 
-    INPUT.Set_Mouse_Move(m_bIsCanMove);
+    INPUT.Set_Mouse_Move(g_bIsCanMouseMove);
 
-    if (true == m_bIsCanMove)
+    if (true == g_bIsCanMouseMove)
     {
         m_pMouse.lock()->Set_Render(true);
     }
-    else if (false == m_bIsCanMove)
+    else if (false == g_bIsCanMouseMove)
     {
         m_pMouse.lock()->Set_Render(false);
     }

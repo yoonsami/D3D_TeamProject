@@ -59,6 +59,7 @@ public:
     static Quaternion Get_QuatFromLook(const _float3& vLook);
 
     static _float4x4 SLerpMatrix(_float4x4& m0, _float4x4& m1, _float ratio);
+    void Reset_Position() { m_matPreWorld = m_matWorld; }
 
 private:
     _float4x4 m_matWorld = _float4x4::Identity;
@@ -68,47 +69,4 @@ private:
 
     _float4x4 m_matPreWorld = _float4x4::Identity;
 
-
-
-
-
-public:
-    void UpdateTransform();
-
-    _bool HasParent() { return m_pParent != nullptr; }
-	shared_ptr<Transform> GetParent() { return m_pParent; }
-	void SetParent(shared_ptr<Transform> parent) { m_pParent = parent; }
-
-	const vector<shared_ptr<Transform>>& GetChildren() { return m_Children; }
-	void AddChild(shared_ptr<Transform> child) { m_Children.push_back(child); }
-
-    _float3 GetLocalScale() { return _localScale; }
-	void SetLocalScale(const _float3& localScale) { _localScale = localScale; UpdateTransform(); }
-    _float3 GetLocalRotation() { return _localRotation; }
-	void SetLocalRotation(const _float3& localRotation) { _localRotation = localRotation; UpdateTransform(); }
-    _float3 GetLocalPosition() { return _localPosition; }
-	void SetLocalPosition(const _float3& localPosition) { _localPosition = localPosition; UpdateTransform(); }
-
-    _float3 GetScale() { return _scale; }
-	void SetScale(const _float3& scale);
-    _float3 GetRotation() { return _rotation; }
-	void SetRotation(const _float3& rotation);
-    _float3 GetPosition() { return _position; }
-	void SetPosition(const _float3& position);
-
-private:
-	_float3 _localScale = { 1.f, 1.f, 1.f };
-	_float3 _localRotation = { 0.f, 0.f, 0.f };
-	_float3 _localPosition = { 0.f, 0.f, 0.f };
-
-    _float3 _scale;
-    _float3 _rotation;
-    _float3 _position;
-
-    _float3 _right;
-    _float3 _up;
-    _float3 _look;
-
-    shared_ptr<Transform> m_pParent;
-    vector<shared_ptr<Transform>> m_Children;
 };

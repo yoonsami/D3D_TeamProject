@@ -110,11 +110,14 @@ void LogoScene::Load_Camera()
 
 void LogoScene::Load_Ui()
 {
-	wstring assetPath = L"..\\Resources\\Textures\\UITexture\\Logo\\";
+	wstring assetPath = L"..\\Resources\\Textures\\UITexture\\";
 
 	for (auto& entry : fs::recursive_directory_iterator(assetPath))
 	{
 		if (entry.is_directory())
+			continue;
+
+		if(entry.path().extension() == L".png" || entry.path().extension() == L".tga")
 			continue;
 
 		wstring filePath = entry.path().wstring();
@@ -122,7 +125,7 @@ void LogoScene::Load_Ui()
 		Utils::DetachExt(fileName);
 		RESOURCES.Load<Texture>(fileName, filePath);
 	}
-	vector<shared_ptr<GameObject>>& tmp = static_pointer_cast<LoadingScene>(CUR_SCENE)->Get_StaticObjects();
+	list<shared_ptr<GameObject>>& tmp = static_pointer_cast<LoadingScene>(CUR_SCENE)->Get_StaticObjects();
 
 	Load_UIFile(L"..\\Resources\\UIData\\UI_Logo.dat", tmp);
 	Load_UIFile(L"..\\Resources\\UIData\\UI_Mouse.dat", tmp);

@@ -17,6 +17,8 @@ public:
         PS_ANIM_SHADOW = 8,
         PS_ANIM_SHADOW_INSTANCING =9,
 
+        PS_FORWARD = 19,
+
 	};
 public:
     ModelAnimator(shared_ptr<Shader> shader);
@@ -39,8 +41,8 @@ public:
 	void Render_Shadow_Instancing(shared_ptr<class InstancingBuffer>& buffer, shared_ptr<InstanceTweenDesc> tweenDesc, shared_ptr<InstanceRenderParamDesc> renderParamDesc );
 
 	void Render_MotionBlur();
-	void Render_MotionBlur_Instancing(shared_ptr<class InstancingBuffer>& buffer, shared_ptr<InstanceTweenDesc> tweenDesc, shared_ptr<InstanceRenderParamDesc> renderParamDesc);
 
+    void Render_Forward();
 
     InstanceID Get_InstanceID();
     TweenDesc& Get_TweenDesc() { return m_TweenDesc; }
@@ -48,9 +50,12 @@ public:
 
     void Set_CurrentAnim(_int index) {
         m_TweenDesc.curr = KeyFrameDesc();
+        m_preTweenDesc.curr = KeyFrameDesc();
         m_TweenDesc.curr.animIndex = index;
+        m_preTweenDesc.curr.animIndex = index;
         m_bFinished = false;
         m_TweenDesc.ClearNextAnim();
+        m_preTweenDesc.ClearNextAnim();
     }
 
     _float4x4 Get_CurAnimTransform(_int boneIndex);

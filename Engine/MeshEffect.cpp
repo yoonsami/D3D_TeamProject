@@ -7,6 +7,7 @@
 #include "Camera.h"
 #include "ModelMesh.h"
 #include "GroupEffect.h"
+#include "StructuredBuffer.h"
 
 MeshEffect::MeshEffect(shared_ptr<Shader> shader)
     : Component(COMPONENT_TYPE::MeshEffect)
@@ -30,6 +31,22 @@ void MeshEffect::Init(void* pArg)
 
 void MeshEffect::Tick()
 {
+    if (!m_bToolMode_On)
+        return;
+    string str = m_tDesc.strVfxMesh;
+    MeshEffect_Tick();
+}
+
+void MeshEffect::Final_Tick()
+{
+    if (!m_bToolMode_On)
+        return;
+
+    MeshEffect_Final_Tick();
+}
+
+void MeshEffect::MeshEffect_Tick()
+{
     if (m_bIsLocked)
         return;
 
@@ -38,7 +55,7 @@ void MeshEffect::Tick()
     Turn(); 
 }
 
-void MeshEffect::Final_Tick()
+void MeshEffect::MeshEffect_Final_Tick()
 {
     if (m_bIsLocked)
         return;
@@ -52,7 +69,7 @@ void MeshEffect::Final_Tick()
 
     // For. Update Time information 
     m_fCurrAge += fDT;
-    m_fLifeTimeRatio = m_fCurrAge / m_tDesc.fDuration;
+    m_fLifeTimeRatio = m_fCurrAge / m_fDuration;
     m_fTimeAcc_SpriteAnimation += fDT;
 
     // Calc Curr Dissolve weight 
@@ -71,12 +88,18 @@ void MeshEffect::Final_Tick()
         m_fCurrRimLightIntensity = output[0];
     }
 
+    Update_RenderParams();
+
     // For. Check is dead 
     if (m_fCurrAge >= m_fDuration)
     {
-        CUR_SCENE->Remove_GameObject(Get_Owner());
-        return;
+        if (!m_tDesc.bIsLoop)
+        {
+            EVENTMGR.Delete_Object(Get_Owner());
+            return; 
+        }
     }
+
 }
 
 void MeshEffect::Render()
@@ -103,6 +126,14 @@ void MeshEffect::Render()
     m_pShader->Push_GlobalData(Camera::Get_View(), Camera::Get_Proj());
     Bind_RenderParams_ToShader();
 
+    m_pShader->Push_LightData(CUR_SCENE->Get_LightParams());
+
+    m_pShader->GetSRV("PositionTargetTex")->SetResource(RESOURCES.Get<Texture>(L"PositionForSSD")->Get_SRV().Get());
+    m_pShader->GetSRV("originPositionTargetTex")->SetResource(RESOURCES.Get<Texture>(L"PositionTarget")->Get_SRV().Get());
+	m_pShader->GetSRV("NormalTargetTex")->SetResource(RESOURCES.Get<Texture>(L"NormalTarget")->Get_SRV().Get());
+	_float4x4 matInvWorldMat = Get_Transform()->Get_WorldMatrix().Invert();
+    m_pShader->GetMatrix("InvWorldTransformMatrix")->SetMatrix((_float*)&matInvWorldMat);
+
     // For. Draw meshes 
     const auto& meshes = m_pModel->Get_Meshes();
     for (auto& mesh : meshes)
@@ -114,15 +145,85 @@ void MeshEffect::Render()
             mesh->indexBuffer->Push_Data();
         }
         m_pMaterial->Tick();
+        m_pMaterial->Push_TextureMapData();
 
         m_pShader->GetScalar("BoneIndex")->SetInt(mesh->boneIndex);
 
         // For. Setting Context Topology
         CONTEXT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
+        _int techniqueIndex = m_tDesc.bIsSSD ? 2 : 0;
         // For. Draw call
-        m_pShader->DrawIndexed(0, m_tDesc.iSamplerType, mesh->indexBuffer->Get_IndicesNum(), 0, 0);
+        m_pShader->DrawIndexed(techniqueIndex, m_tDesc.iSamplerType, mesh->indexBuffer->Get_IndicesNum(), 0, 0);
     }
+}
+
+void MeshEffect::Render_Instancing(shared_ptr<InstancingBuffer> buffer, shared_ptr<StructuredBuffer> pRenderParamBuffer)
+{
+	if (m_pModel == nullptr)
+		return;
+
+	// Bones
+	shared_ptr<BoneDesc> boneDesc = make_shared<BoneDesc>();
+
+	const _uint boneCount = m_pModel->Get_BoneCount();
+
+	for (_uint i = 0; i < boneCount; ++i)
+	{
+		shared_ptr<ModelBone> bone = m_pModel->Get_BoneByIndex(i);
+		boneDesc->transform[i] = bone->transform * Utils::m_matPivot;
+	}
+
+	m_pShader->GetSRV("PositionTargetTex")->SetResource(RESOURCES.Get<Texture>(L"PositionForSSD")->Get_SRV().Get());
+	m_pShader->GetSRV("originPositionTargetTex")->SetResource(RESOURCES.Get<Texture>(L"PositionTarget")->Get_SRV().Get());
+	m_pShader->GetSRV("NormalTargetTex")->SetResource(RESOURCES.Get<Texture>(L"NormalTarget")->Get_SRV().Get());
+    _float4x4 matInvWorldMat = Get_Transform()->Get_WorldMatrix().Invert();
+	m_pShader->GetMatrix("InvWorldTransformMatrix")->SetMatrix((_float*)&matInvWorldMat);
+
+	m_pShader->Push_BoneData(*boneDesc);
+
+    buffer->Push_Data();
+
+	m_pShader->Push_GlobalData(Camera::Get_View(), Camera::Get_Proj());
+
+    m_pShader->GetSRV("g_effectData")->SetResource(pRenderParamBuffer->Get_SRV().Get());
+
+	m_pShader->Push_LightData(CUR_SCENE->Get_LightParams());
+
+	// For. Draw meshes 
+	const auto& meshes = m_pModel->Get_Meshes();
+	for (auto& mesh : meshes)
+	{
+		// For. Material tick 
+		if (!mesh->material.expired()) 
+		{
+			mesh->vertexBuffer->Push_Data();
+			mesh->indexBuffer->Push_Data();
+		}
+		m_pMaterial->Tick();
+		m_pMaterial->Push_TextureMapData();
+
+		m_pShader->GetScalar("BoneIndex")->SetInt(mesh->boneIndex);
+
+		// For. Setting Context Topology
+		CONTEXT->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+        _int techniqueIndex = m_tDesc.bIsSSD ? 3 : 1;
+		// For. Draw call
+		m_pShader->DrawIndexedInstanced(techniqueIndex, m_tDesc.iSamplerType, mesh->indexBuffer->Get_IndicesNum(), buffer->Get_Count());
+	}
+}
+
+void MeshEffect::Update_RenderParams()
+{
+	if (m_bIsLocked)
+		return;
+
+	m_RenderParams.SetFloat(0, m_fLifeTimeRatio);
+	m_RenderParams.SetFloat(1, m_fCurrDissolveWeight);
+	m_RenderParams.SetFloat(2, m_fCurrRimLightIntensity);
+
+	Bind_UpdatedColor_ToShader();
+	Bind_UpdatedTexUVOffset_ToShader();
 }
 
 void MeshEffect::Update_Desc()
@@ -162,48 +263,14 @@ void MeshEffect::Update_Desc()
     m_pModel = RESOURCES.Get<Model>(Utils::ToWString(m_tDesc.strVfxMesh));
 
     // For. Material Components
-    m_pMaterial = make_shared<Material>();
-    m_pMaterial->Set_Shader(m_pShader);
-
-    wstring wstrKey = Utils::ToWString(m_tDesc.strTexture_Op1);
-    wstring wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
-    if (TEXT("None") != wstrKey)
-        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::TEXTURE7);
-    
-    wstrKey = Utils::ToWString(m_tDesc.strTexture_Op2);
-    wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
-    if (TEXT("None") != wstrKey)
-        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::TEXTURE8);
-    
-    wstrKey = Utils::ToWString(m_tDesc.strTexture_Op3);
-    wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
-    if (TEXT("None") != wstrKey)
-        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::TEXTURE9);
-    
-    wstrKey = Utils::ToWString(m_tDesc.strTexture_Blend);
-    wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
-    if (TEXT("None") != wstrKey)
-        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::TEXTURE10);
-    
-    wstrKey = Utils::ToWString(m_tDesc.strOverlayTexture);
-    wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
-    if (TEXT("None") != wstrKey)
-        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::TEXTURE11);
-    
-    wstrKey = Utils::ToWString(m_tDesc.strDissolveTexture);
-    wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
-    if (TEXT("None") != wstrKey)
-        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::DISSOLVE);   
-    
-    wstrKey = Utils::ToWString(m_tDesc.strDistortionTexture);
-    wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
-    if (TEXT("None") != wstrKey)
-        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::DISTORTION);   
-    
-    wstrKey = Utils::ToWString(m_tDesc.strNormalTexture);
-    wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
-    if (TEXT("None") != wstrKey)
-        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::NORMAL);   
+    m_pMaterial = RESOURCES.Get<Material>(Utils::ToWString(m_tDesc.strTag));
+    if (nullptr == m_pMaterial)
+    {
+        Set_Material();
+        RESOURCES.Add<Material>(Utils::ToWString(m_tDesc.strTag), m_pMaterial, true);
+    }
+    if (m_bToolMode_On)
+        Set_Material();
 }
 
 void MeshEffect::InitialTransform(_float4x4 mParentWorldMatrix, const _float3& vInitPos_inGroup, const _float3& vInitScale_inGroup, const _float3& vInitRotation_inGroup)                    
@@ -216,12 +283,12 @@ void MeshEffect::InitialTransform(_float4x4 mParentWorldMatrix, const _float3& v
                           // * _float4x4::CreateFromQuaternion(Quaternion::CreateFromYawPitchRoll(vInitRotation_inGroup.y, vInitRotation_inGroup.x, vInitRotation_inGroup.z))
                           * _float4x4::CreateTranslation(vInitPos_inGroup);
  
-        _float4x4 matLocal = _float4x4::CreateScale(m_vStartScale)
-		* _float4x4::CreateRotationX(m_vStartRotation.x)
-		* _float4x4::CreateRotationY(m_vStartRotation.y)
-		* _float4x4::CreateRotationZ(m_vStartRotation.z)
-                                //* _float4x4::CreateFromQuaternion(Quaternion::CreateFromYawPitchRoll(m_vStartRotation.y, m_vStartRotation.x, m_vStartRotation.z)) 
-                                * _float4x4::CreateTranslation(m_vStartPos);
+   _float4x4 matLocal = _float4x4::CreateScale(m_vStartScale)
+		                  * _float4x4::CreateRotationX(m_vStartRotation.x)
+		                  * _float4x4::CreateRotationY(m_vStartRotation.y)
+		                  * _float4x4::CreateRotationZ(m_vStartRotation.z)
+                          //* _float4x4::CreateFromQuaternion(Quaternion::CreateFromYawPitchRoll(m_vStartRotation.y, m_vStartRotation.x, m_vStartRotation.z)) 
+                          * _float4x4::CreateTranslation(m_vStartPos);
     
 		if (m_tDesc.iMeshCnt > 1)
 			int a = 0;
@@ -256,7 +323,7 @@ void MeshEffect::InitialTransform(_float4x4 mParentWorldMatrix, const _float3& v
     // For. Setting End Informations
     m_vStartPos += _float3(Get_Transform()->Get_State(Transform_State::POS));
     
-    if( 1 != m_iTranslateOption && 2 != m_iTranslateOption)
+    if( 1 != m_iTranslateOption && 2 != m_iTranslateOption && 10 != m_iTranslateOption)
         m_vEndPos += m_vStartPos;
 
     m_vStartScale *= vInitScale_inGroup;
@@ -317,13 +384,87 @@ void MeshEffect::Set_TransformDesc(void* pArg)
 
     // For. Init Spline input
     for (int i = 0; i < 4; ++i) {
-        // Force 
+        // Translate Force 
         m_SplineInput_Force[i * 2 + 0] = m_tTransform_Desc.vCurvePoint_Force[i].x;
         m_SplineInput_Force[i * 2 + 1] = m_tTransform_Desc.vCurvePoint_Force[i].y;
+        // Scale Speed
+        m_SplineInput_ScaleSpeed[i * 2 + 0] = m_tTransform_Desc.vCurvePoint_Scale[i].x;
+        m_SplineInput_ScaleSpeed[i * 2 + 1] = m_tTransform_Desc.vCurvePoint_Scale[i].y;
     }
 
     if (9 == m_iTranslateOption)
         m_fCurrYspeed = m_tTransform_Desc.vCurvePoint_Force[0].y;
+}
+
+void MeshEffect::Set_Material()
+{
+    if(m_pMaterial == nullptr)
+        m_pMaterial = make_shared<Material>();
+
+    // Shader
+    shared_ptr<Shader> shader;
+    if(!m_tDesc.bIsFDistortion)
+        shader = RESOURCES.Get<Shader>(L"Shader_Effect2.fx");
+	else 
+		shader = RESOURCES.Get<Shader>(L"Shader_Distortion.fx");
+    m_pMaterial->Set_Shader(shader);
+
+    // Texture 
+    wstring wstrKey = Utils::ToWString(m_tDesc.strTexture_Op1);
+    wstring wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
+    if (TEXT("None") != wstrKey)
+        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::TEXTURE7);
+    else 
+        m_pMaterial->Set_TextureMap(nullptr, TextureMapType::TEXTURE7);
+
+    wstrKey = Utils::ToWString(m_tDesc.strTexture_Op2);
+    wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
+    if (TEXT("None") != wstrKey)
+        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::TEXTURE8);
+    else
+        m_pMaterial->Set_TextureMap(nullptr, TextureMapType::TEXTURE8);
+
+    wstrKey = Utils::ToWString(m_tDesc.strTexture_Op3);
+    wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
+    if (TEXT("None") != wstrKey)
+        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::TEXTURE9);
+    else
+        m_pMaterial->Set_TextureMap(nullptr, TextureMapType::TEXTURE9);
+
+    wstrKey = Utils::ToWString(m_tDesc.strTexture_Blend);
+    wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
+    if (TEXT("None") != wstrKey)
+        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::TEXTURE10);
+    else
+        m_pMaterial->Set_TextureMap(nullptr, TextureMapType::TEXTURE10);
+
+    wstrKey = Utils::ToWString(m_tDesc.strOverlayTexture);
+    wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
+    if (TEXT("None") != wstrKey)
+        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::TEXTURE11);
+    else
+        m_pMaterial->Set_TextureMap(nullptr, TextureMapType::TEXTURE11);
+
+    wstrKey = Utils::ToWString(m_tDesc.strDissolveTexture);
+    wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
+    if (TEXT("None") != wstrKey)
+        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::DISSOLVE);
+    else
+        m_pMaterial->Set_TextureMap(nullptr, TextureMapType::DISSOLVE);
+
+    wstrKey = Utils::ToWString(m_tDesc.strDistortionTexture);
+    wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
+    if (TEXT("None") != wstrKey)
+        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::DISTORTION);
+    else
+        m_pMaterial->Set_TextureMap(nullptr, TextureMapType::DISTORTION);
+
+    wstrKey = Utils::ToWString(m_tDesc.strNormalTexture);
+    wstrPath = TEXT("../Resources/Textures/Universal/") + wstrKey;
+    if (TEXT("None") != wstrKey)
+        m_pMaterial->Set_TextureMap(RESOURCES.Load<Texture>(wstrKey, wstrPath), TextureMapType::NORMAL);
+    else
+        m_pMaterial->Set_TextureMap(nullptr, TextureMapType::NORMAL);
 }
 
 void MeshEffect::Translate()
@@ -335,7 +476,7 @@ void MeshEffect::Translate()
     case 1: // Move to direction 
     case 2: // Move to random direction 
     {
-        _float fSpeed = CalcSpeed();
+        _float fSpeed = Calc_Spline(m_tTransform_Desc.iSpeedType, m_SplineInput_Force);
         if (m_bToolMode_On)
         {
             _float4 vCurrPos = Get_Transform()->Get_State(Transform_State::POS);
@@ -349,7 +490,7 @@ void MeshEffect::Translate()
         }
         else
         {
-            _float3 vDir = m_vEndPos - m_vLocalPos;
+            _float3 vDir = m_vEndPos;
             vDir.Normalize();
 
             m_vLocalPos += vDir * fSpeed * fDT;
@@ -359,7 +500,7 @@ void MeshEffect::Translate()
     }
     case 3:
     {
-        Get_Transform()->Set_Speed(CalcSpeed());
+        Get_Transform()->Set_Speed(Calc_Spline(m_tTransform_Desc.iSpeedType, m_SplineInput_Force));
 
         if (m_bToolMode_On)
         {
@@ -370,13 +511,12 @@ void MeshEffect::Translate()
             _float3 vDir = Get_LocalMatrix().Backward();
             vDir.Normalize();
             m_vLocalPos += vDir * Get_Transform()->Get_Speed() * fDT;
-
         }
         break;
     }
     case 4:
     {
-        Get_Transform()->Set_Speed(CalcSpeed());
+        Get_Transform()->Set_Speed(Calc_Spline(m_tTransform_Desc.iSpeedType, m_SplineInput_Force));
 
         if (m_bToolMode_On)
         {
@@ -387,13 +527,12 @@ void MeshEffect::Translate()
             _float3 vDir = Get_LocalMatrix().Backward();
             vDir.Normalize();
             m_vLocalPos -= vDir * Get_Transform()->Get_Speed() * fDT;
-
         }
         break;
     }
     case 5:
     {
-        Get_Transform()->Set_Speed(CalcSpeed());
+        Get_Transform()->Set_Speed(Calc_Spline(m_tTransform_Desc.iSpeedType, m_SplineInput_Force));
 
         if (m_bToolMode_On)
         {
@@ -404,13 +543,12 @@ void MeshEffect::Translate()
             _float3 vDir = Get_LocalMatrix().Right();
             vDir.Normalize();
             m_vLocalPos -= vDir * Get_Transform()->Get_Speed() * fDT;
-
         }
         break;
     }
     case 6:
     {
-        Get_Transform()->Set_Speed(CalcSpeed());
+        Get_Transform()->Set_Speed(Calc_Spline(m_tTransform_Desc.iSpeedType, m_SplineInput_Force));
 
         if (m_bToolMode_On)
         {
@@ -421,13 +559,12 @@ void MeshEffect::Translate()
             _float3 vDir = Get_LocalMatrix().Right();
             vDir.Normalize();
             m_vLocalPos += vDir * Get_Transform()->Get_Speed() * fDT;
-
         }
         break;
     }
     case 7:
     {
-        Get_Transform()->Set_Speed(CalcSpeed());
+        Get_Transform()->Set_Speed(Calc_Spline(m_tTransform_Desc.iSpeedType, m_SplineInput_Force));
 
         if (m_bToolMode_On)
         {
@@ -444,7 +581,7 @@ void MeshEffect::Translate()
     }
     case 8:
     {
-        Get_Transform()->Set_Speed(CalcSpeed());
+        Get_Transform()->Set_Speed(Calc_Spline(m_tTransform_Desc.iSpeedType, m_SplineInput_Force));
 
         if (m_bToolMode_On)
         {
@@ -468,9 +605,9 @@ void MeshEffect::Translate()
             vDir.Normalize();
             vDir.y = 0.f;
 
-            vPos += vDir * m_tTransform_Desc.vCurvePoint_Force[0].x;
+            vPos += vDir * (m_tTransform_Desc.vCurvePoint_Force[0].x * fDT);
+            m_fCurrYspeed += 10.0f * fDT;
             vPos.y -= m_fCurrYspeed * fDT;
-            m_fCurrYspeed += fDT;
 
             Get_Transform()->Set_State(Transform_State::POS, vPos);
         }
@@ -479,15 +616,17 @@ void MeshEffect::Translate()
             _float3 vDir = Get_LocalMatrix().Backward();
             vDir.Normalize();
 
-            m_vLocalPos += vDir * m_tTransform_Desc.vCurvePoint_Force[0].x;
+            m_vLocalPos += vDir * (m_tTransform_Desc.vCurvePoint_Force[0].x * fDT);
+            m_fCurrYspeed += 9.8f * fDT;
             m_vLocalPos.y -= m_fCurrYspeed * fDT;
-            m_fCurrYspeed += fDT;
         }
 
         break;
     }
     case 10: // Move to target position 
     {
+        Get_Transform()->Set_Speed(Calc_Spline(m_tTransform_Desc.iSpeedType, m_SplineInput_Force));
+
         if (m_bToolMode_On)
             Get_Transform()->Set_State(Transform_State::POS, _float4(_float3::Lerp(m_vStartPos, m_vEndPos, m_fLifeTimeRatio), 1.f));
         else
@@ -502,22 +641,52 @@ void MeshEffect::Translate()
 
 void MeshEffect::Scaling()
 {
+    _float3 vScale = Get_Transform()->Get_Scale();
     if (m_bToolMode_On)
-	{
-		_float3 vScale = XMVectorLerp(m_vStartScale, m_vEndScale, m_fLifeTimeRatio);
+    {
+        // lerp 
+        if (2 == m_tTransform_Desc.iScaleSpeedType)
+        {
+            vScale = XMVectorLerp(m_vStartScale, m_vEndScale, m_fLifeTimeRatio);
+            if (m_tDesc.bIsSSD)
+                vScale.y = m_vStartScale.y;
 
-		if (vScale.x < 0) vScale.x = 0.f;
-		if (vScale.y < 0) vScale.y = 0.f;
-		if (vScale.z < 0) vScale.z = 0.f;
+            if (vScale.x < 0) vScale.x = 0.f;
+            if (vScale.y < 0) vScale.y = 0.f;
+            if (vScale.z < 0) vScale.z = 0.f;
 
-		Get_Transform()->Scaled(vScale);
-	}
+        }
+        // scaling by scale speed
+        else
+        {
+            _float fScaleSpeed = Calc_Spline(m_tTransform_Desc.iScaleSpeedType, m_SplineInput_ScaleSpeed);
+            vScale = Get_Transform()->Get_Scale() + _float3(fScaleSpeed * fDT);
+            if (m_tDesc.bIsSSD)
+                vScale.y = m_vStartScale.y;
+        }
+
+        Get_Transform()->Scaled(vScale);
+    }
     else
     {
-        m_vLocalScale = _float3::Lerp(m_vStartScale, m_vEndScale, m_fLifeTimeRatio);
-        if (m_vLocalScale.x < 0) m_vLocalScale.x = 0.f;
-        if (m_vLocalScale.y < 0) m_vLocalScale.y = 0.f;
-        if (m_vLocalScale.z < 0) m_vLocalScale.z = 0.f;
+        // lerp 
+        if (2 == m_tTransform_Desc.iScaleSpeedType)
+        {
+            m_vLocalScale = _float3::Lerp(m_vStartScale, m_vEndScale, m_fLifeTimeRatio);
+            if (m_tDesc.bIsSSD)
+                m_vLocalScale.y = m_vStartScale.y;
+            if (m_vLocalScale.x < 0) m_vLocalScale.x = 0.f;
+            if (m_vLocalScale.y < 0) m_vLocalScale.y = 0.f;
+            if (m_vLocalScale.z < 0) m_vLocalScale.z = 0.f;
+        }
+        // scaling by scale speed
+        else
+        {
+            _float fScaleSpeed = Calc_Spline(m_tTransform_Desc.iScaleSpeedType, m_SplineInput_ScaleSpeed);
+            m_vLocalScale = Get_Transform()->Get_Scale() + _float3(fScaleSpeed * fDT);
+            if (m_tDesc.bIsSSD)
+                m_vLocalScale.y = m_vStartScale.y;
+        }
     }
 }
 
@@ -554,6 +723,7 @@ void MeshEffect::Run_SpriteAnimation()
 
         _int iIndexX = m_iCurrSpriteIndex % m_tDesc.iNumSprite_Col;
         _int iIndexY = m_iCurrSpriteIndex / m_tDesc.iNumSprite_Col;
+
         m_UVTexRangeX.x = (_float)iIndexX / (_float)m_tDesc.iNumSprite_Col;
         m_UVTexRangeX.y = ((_float)iIndexX + 1) / (_float)m_tDesc.iNumSprite_Col;
         m_UVTexRangeY.x = (_float)iIndexY / (_float)m_tDesc.iNumSprite_Row;
@@ -573,11 +743,13 @@ void MeshEffect::Init_RenderParams()
     m_RenderParams.SetInt(0, (_int)m_tDesc.bUseFadeOut);
     m_RenderParams.SetInt(1, (_int)m_tDesc.bIsRimLightOn);
     m_RenderParams.SetInt(2, (_int)m_tDesc.bUseSpriteAnim);
-    
+    m_RenderParams.SetInt(3, (_int)m_tDesc.bLightOn);
+
     /* Float */
-    m_RenderParams.SetFloat(0, m_fCurrAge / m_tDesc.fDuration);
+    m_RenderParams.SetFloat(0, m_fCurrAge / m_fDuration);
     m_RenderParams.SetFloat(1, m_fCurrDissolveWeight);
     m_RenderParams.SetFloat(2, m_fCurrRimLightIntensity);
+    m_RenderParams.SetFloat(3, m_tDesc.fLightIntensity);
 
     /* Float2 */
     vTemp2 = _float2(m_tDesc.fContrast_Op1, m_tDesc.fAlphaOffset_Op1);
@@ -616,8 +788,8 @@ void MeshEffect::Init_RenderParams()
     m_RenderParams.SetMatrix(1, vTemp4x4);
     vTemp4x4 = _float4x4(
         _float4((_float)m_tDesc.bIsUseTextureColor_Op1, (_float)m_tDesc.bIsUseTextureColor_Op2, (_float)m_tDesc.bIsUseTextureColor_Op3, 0.f),
-        _float4((_float)m_tDesc.iFlipOption_Op1, (_float)m_tDesc.iFlipOption_Op2, (_float)m_tDesc.iFlipOption_Op3, 0.f),
-        _float4(0.f, 0.f, 0.f, 0.f),
+        _float4((_float)m_tDesc.iFlipOption_Op1, (_float)m_tDesc.iFlipOption_Op2, (_float)m_tDesc.iFlipOption_Op3, m_tDesc.fAlphaOffset_Blend),
+        _float4((_float)m_tDesc.bIsSSD, 0.f, 0.f, 0.f),
         _float4(0.f, 0.f, 0.f, 0.f)
     );
     m_RenderParams.SetMatrix(2, vTemp4x4);
@@ -698,35 +870,35 @@ void MeshEffect::Bind_RenderParams_ToShader()
     m_pShader->Push_RenderParamData(m_RenderParams);
 }
 
-_float MeshEffect::CalcSpeed()
+_float MeshEffect::Calc_Spline(_int iType, _float* vSplineInput)
 {
     _float fSpeed = 0.f;
-    if (0 == m_tTransform_Desc.iSpeedType)
+    if (0 == iType)
     {
         _float output[4];
-        Utils::Spline(m_SplineInput_Force, 4, 1, m_fLifeTimeRatio, output);
+        Utils::Spline(vSplineInput, 4, 1, m_fLifeTimeRatio, output);
         fSpeed = output[0];
     }
-    else if (1 == m_tTransform_Desc.iSpeedType)
+    else if (1 == iType)
     {
-        if (0.f <= m_fLifeTimeRatio && m_fLifeTimeRatio < m_SplineInput_Force[0])
+        if (0.f <= m_fLifeTimeRatio && m_fLifeTimeRatio < vSplineInput[0])
             fSpeed = 0.f;
-        else if (m_SplineInput_Force[0] <= m_fLifeTimeRatio && m_fLifeTimeRatio < m_SplineInput_Force[2])
+        else if (vSplineInput[0] <= m_fLifeTimeRatio && m_fLifeTimeRatio < vSplineInput[2])
         {
-            _float fRatio = (m_fLifeTimeRatio - m_SplineInput_Force[0]) / (m_SplineInput_Force[2] - m_SplineInput_Force[0]);
-            _float2 vTemp2 = XMVectorLerp(_float2(m_SplineInput_Force[1], 0.f), _float2(m_SplineInput_Force[3], 0.f), fRatio);
+            _float fRatio = (m_fLifeTimeRatio - vSplineInput[0]) / (vSplineInput[2] - vSplineInput[0]);
+            _float2 vTemp2 = XMVectorLerp(_float2(vSplineInput[1], 0.f), _float2(vSplineInput[3], 0.f), fRatio);
             fSpeed = vTemp2.x;
         }
-        else if (m_SplineInput_Force[2] <= m_fLifeTimeRatio && m_fLifeTimeRatio < m_SplineInput_Force[4])
+        else if (vSplineInput[2] <= m_fLifeTimeRatio && m_fLifeTimeRatio < vSplineInput[4])
         {
-            _float fRatio = (m_fLifeTimeRatio - m_SplineInput_Force[2]) / (m_SplineInput_Force[4] - m_SplineInput_Force[2]);
-            _float2 vTemp2 = XMVectorLerp(_float2(m_SplineInput_Force[3], 0.f), _float2(m_SplineInput_Force[5], 0.f), fRatio);
+            _float fRatio = (m_fLifeTimeRatio - vSplineInput[2]) / (vSplineInput[4] - vSplineInput[2]);
+            _float2 vTemp2 = XMVectorLerp(_float2(vSplineInput[3], 0.f), _float2(vSplineInput[5], 0.f), fRatio);
             fSpeed = vTemp2.x;
         }
-        else if (m_SplineInput_Force[4] <= m_fLifeTimeRatio && m_fLifeTimeRatio < m_SplineInput_Force[6])
+        else if (vSplineInput[4] <= m_fLifeTimeRatio && m_fLifeTimeRatio < vSplineInput[6])
         {
-            _float fRatio = (m_fLifeTimeRatio - m_SplineInput_Force[4]) / (m_SplineInput_Force[6] - m_SplineInput_Force[4]);
-            _float2 vTemp2 = XMVectorLerp(_float2(m_SplineInput_Force[5], 0.f), _float2(m_SplineInput_Force[7], 0.f), fRatio);
+            _float fRatio = (m_fLifeTimeRatio - vSplineInput[4]) / (vSplineInput[6] - vSplineInput[4]);
+            _float2 vTemp2 = XMVectorLerp(_float2(vSplineInput[5], 0.f), _float2(vSplineInput[7], 0.f), fRatio);
             fSpeed = vTemp2.x;
         }
         else
@@ -748,11 +920,10 @@ void MeshEffect::BillBoard()
 
 		if (m_tTransform_Desc.bBillbordAxes[0])
 		{
-			vTargetDir.x = vCurrDir.x;
-			vTargetDir.z = vCurrDir.z;
+            vTargetDir.y = 0.f;
 		}
 		if (m_tTransform_Desc.bBillbordAxes[1])
-			vTargetDir.y = vCurrDir.y;
+			vTargetDir.y = 0.f;
 
 		Get_Transform()->Set_LookDir(vTargetDir);
 	}
@@ -762,6 +933,11 @@ _float4x4 MeshEffect::Get_LocalMatrix()
 {
     
     return _float4x4::CreateScale(m_vLocalScale) * _float4x4::CreateFromQuaternion(m_qRotation) * _float4x4::CreateTranslation(m_vLocalPos);
+}
+
+InstanceID MeshEffect::Get_InstanceID()
+{
+	return make_pair(_ulonglong(m_iRenderPriority), _ulonglong(m_pMaterial.get()));
 }
 
 static _float3 ToEulerAngles(Quaternion q)

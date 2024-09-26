@@ -22,7 +22,7 @@ void GroupEffectOwner::Tick()
 
 	if (m_pGroupEffect.expired())
 	{
-		CUR_SCENE->Remove_GameObject(Get_Owner());
+		EVENTMGR.Delete_Object(Get_Owner());
 		return;
 	}
 }
@@ -50,10 +50,20 @@ void GroupEffectOwner::PlayEffect()
 	pGroupEffectObj->Get_GroupEffect()->Set_Tag(pGroupEffectData->Get_GroupEffectDataTag());
 	pGroupEffectObj->Get_GroupEffect()->Set_MemberEffectData(pGroupEffectData->Get_MemberEffectData());
 	pGroupEffectObj->Get_GroupEffect()->Set_InitWorldMatrix(Get_Transform()->Get_WorldMatrix());
+	pGroupEffectObj->Get_GroupEffect()->Set_MemberEffectMaterials();
 	pGroupEffectObj->Set_Name(m_wstrGroupEffectTag);
 	m_pGroupEffect = pGroupEffectObj;
+	pGroupEffectObj->Get_GroupEffect()->Init();
 
 	// For. Add Effect GameObject to current scene
-	CUR_SCENE->Add_GameObject(m_pGroupEffect.lock());
+	EVENTMGR.Create_Object(m_pGroupEffect.lock());
+}
+
+void GroupEffectOwner::Set_GroupEffectScript(shared_ptr<MonoBehaviour> pScript)
+{
+	if (m_pGroupEffect.expired())
+		return;
+
+	m_pGroupEffect.lock()->Get_GroupEffect()->Set_Script(pScript);
 }
 

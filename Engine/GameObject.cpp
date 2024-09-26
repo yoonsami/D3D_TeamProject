@@ -18,6 +18,7 @@
 #include "ModelRenderer.h"
 #include "ModelAnimator.h"
 #include "ParticleSystem.h"
+#include "TerrainRenderer.h"
 #include "GroupEffectOwner.h"
 #include "DistortionRenderer.h"
 #include "CharacterController.h"
@@ -49,7 +50,8 @@ HRESULT GameObject::Init()
 				return E_FAIL;
 		}
 	}
-	for (auto& script : m_Scripts)
+	auto scripts = m_Scripts;
+	for (auto& script : scripts)
 	{
 		hr = script->Init();
 		if (hr == E_FAIL)
@@ -103,7 +105,8 @@ void GameObject::Fixed_Tick()
 		if (component)
 			component->Fixed_Tick();
 	}
-	for (auto& script : m_Scripts)
+	auto scripts = m_Scripts;
+	for (auto& script : scripts)
 		script->Fixed_Tick();
 }
 
@@ -167,6 +170,9 @@ SHADER_TYPE GameObject::Get_ShaderType()
 	if (Get_DistortionRenderer() && Get_DistortionRenderer()->Get_Shader())
 		return Get_DistortionRenderer()->Get_Shader()->Get_ShaderType();
 
+	if (Get_GroupEffect() && Get_GroupEffect()->Is_DistortionGroup())
+		return SHADER_TYPE::DISTORTION;
+
 	return SHADER_TYPE::NONE;
 }
 
@@ -222,11 +228,6 @@ shared_ptr<FSM> GameObject::Get_FSM()
 	return static_pointer_cast<FSM>(Get_FixedComponent(COMPONENT_TYPE::FSM));
 }
 
-//shared_ptr<Physics> GameObject::Get_Physics()
-//{
-//	return static_pointer_cast<Physics>(Get_FixedComponent(COMPONENT_TYPE::Physics));
-//}
-//
 shared_ptr<BaseUI> GameObject::Get_Button()
 {
 	return static_pointer_cast<BaseUI>(Get_FixedComponent(COMPONENT_TYPE::BaseUI));
@@ -258,25 +259,19 @@ shared_ptr<GroupEffectOwner> GameObject::Get_GroupEffectOwner()
 	return static_pointer_cast<GroupEffectOwner>(Get_FixedComponent(COMPONENT_TYPE::GroupEffectOwner));
 }
 
-//shared_ptr<Billboard> GameObject::Get_Billboard()
-//{
-//	return static_pointer_cast<Billboard>(Get_FixedComponent(COMPONENT_TYPE::Billboard));
-//
-//}
-//
 shared_ptr<RigidBody> GameObject::Get_RigidBody()
 {
 	return static_pointer_cast<RigidBody>(Get_FixedComponent(COMPONENT_TYPE::RigidBody));
 }
 
-//shared_ptr<EffectRenderer> GameObject::Get_EffectRenderer()
-//{
-//	return static_pointer_cast<EffectRenderer>(Get_FixedComponent(COMPONENT_TYPE::EffectRenderer));
-//}
-//
 shared_ptr<ParticleSystem> GameObject::Get_ParticleSystem()
 {
 	return static_pointer_cast<ParticleSystem>(Get_FixedComponent(COMPONENT_TYPE::ParticleSystem));
+}
+
+shared_ptr<TerrainRenderer> GameObject::Get_TerrainRenderer()
+{
+	return static_pointer_cast<TerrainRenderer>(Get_FixedComponent(COMPONENT_TYPE::TerrainRenderer));
 }
 
 shared_ptr<Particle> GameObject::Get_Particle()
@@ -294,11 +289,6 @@ shared_ptr<TrailRenderer> GameObject::Get_TrailRenderer()
 	return static_pointer_cast<TrailRenderer>(Get_FixedComponent(COMPONENT_TYPE::TrailRenderer));
 }
 
-//shared_ptr<EffectController> GameObject::Get_EffectController()
-//{
-//	return static_pointer_cast<EffectController>(Get_FixedComponent(COMPONENT_TYPE::EffectController));
-//}
-//
 shared_ptr<FontRenderer> GameObject::Get_FontRenderer()
 {
 	return static_pointer_cast<FontRenderer>(Get_FixedComponent(COMPONENT_TYPE::FontRenderer));

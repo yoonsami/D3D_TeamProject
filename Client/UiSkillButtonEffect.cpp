@@ -41,6 +41,7 @@ void UiSkillButtonEffect::Start_Effect()
 
     m_fCheckTime = 0.f;
     m_eState = STATE::START;
+    m_pOwner.lock()->Set_Render(true);
     m_pOwner.lock()->Get_MeshRenderer()->Get_RenderParamDesc().vec4Params[0].w = 1.f;
 }
 
@@ -52,6 +53,7 @@ void UiSkillButtonEffect::Start()
     {
         m_fCheckTime = 0.f;
         m_eState = STATE::END;
+        
         m_pOwner.lock()->Get_MeshRenderer()->Get_RenderParamDesc().vec4Params[0].w = 0.f;
 
         return;
@@ -68,6 +70,6 @@ void UiSkillButtonEffect::Start()
 void UiSkillButtonEffect::End()
 {
     m_eState = STATE::NONE;
-
+    m_pOwner.lock()->Set_Render(false);
     m_pOwner.lock()->GetOrAddTransform()->Scaled(m_vecOriginScale);
 }

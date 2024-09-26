@@ -5,6 +5,7 @@ class ObjectTransformDebug :
 {
 public:
     virtual void Tick() override;
+	virtual shared_ptr<MonoBehaviour> Copy_Script()override { return make_shared<ObjectTransformDebug>(); }
 
 
 public:

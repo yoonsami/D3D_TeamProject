@@ -40,6 +40,8 @@ void UiComboEffect::Start_Effect(_float4 vecPos)
 
     m_fCheckTime = 0.f;
     m_eState = STATE::START;
+    m_pOwner.lock()->Set_Tick(true);
+    m_pOwner.lock()->Set_Render(true);
     m_pOwner.lock()->Get_MeshRenderer()->Get_RenderParamDesc().vec4Params[0].w = 1.f;
     m_pOwner.lock()->GetOrAddTransform()->Set_State(Transform_State::POS, vecPos);
 }
@@ -53,6 +55,8 @@ void UiComboEffect::Start()
     {
         m_fCheckTime = 0.f;
         m_eState = STATE::NONE;
+        m_pOwner.lock()->Set_Tick(false);
+        m_pOwner.lock()->Set_Render(false);
         m_pOwner.lock()->Get_MeshRenderer()->Get_RenderParamDesc().vec4Params[0].w = 0.f;
     }
 }

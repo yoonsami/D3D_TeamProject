@@ -49,9 +49,6 @@
     <Filter Include="02.Manager\04.PhysxMgr">
       <UniqueIdentifier>{f46c7903-9a77-4557-b818-a85daea9cf33}</UniqueIdentifier>
     </Filter>
-    <Filter Include="02.Manager\05.CollisionMgr">
-      <UniqueIdentifier>{2df816b7-b10e-4b44-9e6c-1afc74325ea0}</UniqueIdentifier>
-    </Filter>
     <Filter Include="02.Manager\01.ResourceMgr\Resources">
       <UniqueIdentifier>{306bebfd-d202-46ee-8a28-55579333110e}</UniqueIdentifier>
     </Filter>
@@ -208,9 +205,6 @@
     <Filter Include="02.Manager\01.ResourceMgr\Resources\ParticleData">
       <UniqueIdentifier>{cd6760d9-ba73-42d1-983b-5273ca1ca635}</UniqueIdentifier>
     </Filter>
-    <Filter Include="04.Component\01.Renderer\03.ReflectionRenderer">
-      <UniqueIdentifier>{1401b384-815f-44e2-9733-efa669691635}</UniqueIdentifier>
-    </Filter>
     <Filter Include="02.Manager\01.ResourceMgr\Resources\Model\Parts">
       <UniqueIdentifier>{435dff00-1b52-4179-96df-88922408507a}</UniqueIdentifier>
     </Filter>
@@ -225,6 +219,21 @@
     </Filter>
     <Filter Include="04.Component\05.UI &amp; Effect\Renderer\07.GroupEffectOwner">
       <UniqueIdentifier>{a507ec01-f6f1-4398-8cdc-6b7abf65ee34}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Manager\09.EventMgr">
+      <UniqueIdentifier>{f75c4437-a896-4960-b7b5-ee5ea1cdc7ad}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="06.Map\01.Terrain">
+      <UniqueIdentifier>{8415b906-9975-4246-81b4-7ed228377b53}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="02.Manager\05.CollisionMgr">
+      <UniqueIdentifier>{2df816b7-b10e-4b44-9e6c-1afc74325ea0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="04.Component\01.Renderer\NewFilter1">
+      <UniqueIdentifier>{22047bb6-7abe-48a0-a74f-a27079161772}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="04.Component\01.Renderer\03.TerrainRenderer">
+      <UniqueIdentifier>{1401b384-815f-44e2-9733-efa669691635}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -458,6 +467,15 @@
     </ClCompile>
     <ClCompile Include="GroupEffectOwner.cpp">
       <Filter>04.Component\05.UI &amp; Effect\Renderer\07.GroupEffectOwner</Filter>
+    </ClCompile>
+    <ClCompile Include="Terrain.cpp">
+      <Filter>06.Map\01.Terrain</Filter>
+    </ClCompile>
+    <ClCompile Include="EventMgr.cpp">
+      <Filter>02.Manager\09.EventMgr</Filter>
+    </ClCompile>
+    <ClCompile Include="TerrainRenderer.cpp">
+      <Filter>04.Component\01.Renderer\03.TerrainRenderer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -706,6 +724,15 @@
     </ClInclude>
     <ClInclude Include="GroupEffectOwner.h">
       <Filter>04.Component\05.UI &amp; Effect\Renderer\07.GroupEffectOwner</Filter>
+    </ClInclude>
+    <ClInclude Include="Terrain.h">
+      <Filter>06.Map\01.Terrain</Filter>
+    </ClInclude>
+    <ClInclude Include="EventMgr.h">
+      <Filter>02.Manager\09.EventMgr</Filter>
+    </ClInclude>
+    <ClInclude Include="TerrainRenderer.h">
+      <Filter>04.Component\01.Renderer\03.TerrainRenderer</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

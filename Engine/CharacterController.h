@@ -16,7 +16,7 @@ public:
     virtual HRESULT Init() override;
     virtual void Tick() override;
     void Set_ControllerNull() { m_pController = nullptr; }
-
+    void Release_Controller();
     void Add_Velocity(const _float vel);
 private:
 

@@ -117,7 +117,7 @@ float4 PS_SSAO(VS_OUT pin, uniform int gSampleCount) : SV_Target
 {
 
     float3 n = SubMap0.SampleLevel(samNormalDepth, pin.uv, 0.0f).xyz;
-    float pz = SubMap1.SampleLevel(samNormalDepth, pin.uv, 0.0f).w;
+    float pz = SubMap1.SampleLevel(samNormalDepth, pin.uv, 0.0f).z;
 
     float3 p = (pz / pin.ToFarPlane.z) * pin.ToFarPlane;
 
@@ -137,7 +137,7 @@ float4 PS_SSAO(VS_OUT pin, uniform int gSampleCount) : SV_Target
         float4 projQ = mul(float4(q, 1.0f), gViewToTexSpace);
         projQ /= projQ.w;
 
-        float rz = SubMap1.SampleLevel(samNormalDepth, projQ.xy, 0.0f).a;
+        float rz = SubMap1.SampleLevel(samNormalDepth, projQ.xy, 0.0f).z;
 
 
 
@@ -160,64 +160,6 @@ float4 PS_SSAO(VS_OUT pin, uniform int gSampleCount) : SV_Target
     return saturate(pow(access, 4.0f));
 }
 
-float4 PS_BLUR(VS_OUT pin, uniform bool gHorizontalBlur) : SV_Target
-{
-    uint width, height, numMips;
-    SubMap0.GetDimensions(0, width, height, numMips);
-    
-    float gTexelWidth = 1.f / (float) width;
-    float gTexelHeight = 1.f / (float) height;
-    
-    float2 texOffset;
-    if (gHorizontalBlur)
-    {
-        texOffset = float2(gTexelWidth, 0.0f);
-    }
-    else
-    {
-        texOffset = float2(0.0f, gTexelHeight);
-    }
-
-	// The center value always contributes to the sum.
-    float4 color = gWeights[5] * SubMap0.SampleLevel(samInputImage, pin.uv, 0.0);
-    float totalWeight = gWeights[5];
-
-    float4 centerNormalDepth = SubMap1.SampleLevel(samNormalDepth2, pin.uv, 0.0f);
-
-    for (float i = -gBlurRadius; i <= gBlurRadius; ++i)
-    {
-		// We already added in the center weight.
-        if (i == 0)
-            continue;
-
-        float2 tex = pin.uv + i * texOffset;
-
-        float4 neighborNormalDepth = SubMap1.SampleLevel(
-			samNormalDepth2, tex, 0.0f);
-
-		//
-		// If the center value and neighbor values differ too much (either in 
-		// normal or depth), then we assume we are sampling across a discontinuity.
-		// We discard such samples from the blur.
-		//
-
-        if (dot(neighborNormalDepth.xyz, centerNormalDepth.xyz) >= 0.8f &&
-			abs(neighborNormalDepth.a - centerNormalDepth.a) <= 0.2f)
-        {
-            float weight = gWeights[i + gBlurRadius];
-
-			// Add neighbor pixel to blur.
-            color += weight * SubMap0.SampleLevel(
-				samInputImage, tex, 0.0);
-
-            totalWeight += weight;
-        }
-    }
-
-	// Compensate for discarded samples by making total weights sum to 1.
-    return color / totalWeight;
-}
-
 technique11 t0
 {
     pass p0
@@ -228,25 +170,5 @@ technique11 t0
         SetDepthStencilState(DSS_NO_DEPTH_TEST_NO_WRITE, 0);
         SetBlendState(BlendOff, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
         SetPixelShader(CompileShader(ps_5_0, PS_SSAO(14)));
-    }
-    pass P1
-    {
-        SetVertexShader(CompileShader(vs_5_0, VS_Final()));
-        SetGeometryShader(NULL);
-        SetRasterizerState(RS_Default);
-        SetDepthStencilState(DSS_NO_DEPTH_TEST_NO_WRITE, 0);
-        SetBlendState(BlendOff, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
-
-        SetPixelShader(CompileShader(ps_5_0, PS_BLUR(true)));
-    }
-    pass P2
-    {
-        SetVertexShader(CompileShader(vs_5_0, VS_Final()));
-        SetGeometryShader(NULL);
-        SetRasterizerState(RS_Default);
-        SetDepthStencilState(DSS_NO_DEPTH_TEST_NO_WRITE, 0);
-        SetBlendState(BlendOff, float4(0.0f, 0.0f, 0.0f, 0.0f), 0xFFFFFFFF);
-
-        SetPixelShader(CompileShader(ps_5_0, PS_BLUR(false)));
     }
 }

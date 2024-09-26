@@ -15,7 +15,7 @@ void Debug_CreateMotionTrail::Tick()
 		motionTrail->Add_Component(make_shared<MotionTrailRenderer>(RESOURCES.Get<Shader>(L"Shader_Model.fx"), Get_Owner()->Get_Animator()->Get_TweenDesc(), Get_Owner()->Get_Animator()->Get_Model()));
 		motionTrail->Add_Component(make_shared<MotionTrailDisappear>(1.f, Color(1.f)));
 		motionTrail->Get_Script<MotionTrailDisappear>()->Init();
-		CUR_SCENE->Add_GameObject(motionTrail);
+		EVENTMGR.Create_Object(motionTrail);
 
 		m_fAcc = 0.f;
 	}

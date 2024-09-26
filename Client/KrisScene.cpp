@@ -46,7 +46,11 @@
 #include "Undead_Priest_FSM.h"
 #include "Alpaca_FSM.h"
 #include "Wolf_FSM.h"
+#include "EntSoldier_FSM.h"
 
+#include "Companion_Spike_FSM.h"
+#include "Companion_Dellons_FSM.h"
+#include "Companion_Shane_FSM.h"
 
 #include "UiGachaController.h"
 #include "Boss_Mir_FSM.h"
@@ -55,22 +59,29 @@
 #include "DemoAnimationController1.h"
 #include "UiCardDeckController.h"
 #include "MainUiController.h"
-#include "UiCardDeckInvenChange.h"
 #include "UiTargetLockOn.h"
 #include "UiMonsterHp.h"
 #include "UiDamageCreate.h"
 #include "UIBossHpBar.h"
 #include "UiComboEffect.h"
 #include "UiSkillGauge.h"
-
+#include "UiUseItemSlot.h"
 
 #include <filesystem>
 #include "GachaScene.h"
 #include "GranseedScene.h"
+#include "SpikeScene.h"
+#include "UiSettingController.h"
+#include "UiQuestController.h"
+#include "UiBossDialog.h"
+#include "UIInteraction.h"
+#include "NeutralAlpaca_FSM.h"
+#include "UiCostumeController.h"
 namespace fs = std::filesystem;
 
 KrisScene::KrisScene()
 {
+	m_strSceneName = L"KrisScene";
 }
 
 KrisScene::~KrisScene()
@@ -80,6 +91,24 @@ KrisScene::~KrisScene()
 void KrisScene::Init()
 {
 	__super::Init();
+	for (_int i = 0; i < _int(HERO::MAX); ++i)
+	{
+		auto& tagData = GET_DATA(HERO(i));
+
+		shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
+
+		{
+			shared_ptr<GameObject> obj = make_shared<GameObject>();
+			obj->GetOrAddTransform()->Set_State(Transform_State::POS, _float4(0.f, -200.f, 0.f, 1.f));
+			shared_ptr<ModelAnimator> animator = make_shared<ModelAnimator>(shader);
+			animator->Set_Model(RESOURCES.Get<Model>(tagData.ModelTag));
+			obj->Add_Component(animator);
+			obj->Set_Instancing(false);
+			Add_GameObject(obj);
+		}
+
+	}
+
 
 }
 
@@ -110,7 +139,7 @@ void KrisScene::Final_Tick()
 	__super::Final_Tick();
 	PHYSX.Tick();
 
-	if (KEYTAP(KEY_TYPE::TAB))
+	if (KEYPUSH(KEY_TYPE::TAB) && KEYPUSH(KEY_TYPE::F4))
 	{
 
 		/*GachaSceneDesc sceneDesc{ L"YeopoMap",HERO::YEOPO};
@@ -118,12 +147,24 @@ void KrisScene::Final_Tick()
 		SCENE.Exchange_Scene();*/
 
 
-		shared_ptr<LoadingScene> scene = make_shared<LoadingScene>(make_shared<GranseedScene>());
+		shared_ptr<LoadingScene> scene = make_shared<LoadingScene>(make_shared<SpikeScene>());
 		PHYSX.Set_CharacterControllerNull();
 
 		scene->Set_StaticObjects(m_StaticObject);
 		SCENE.Change_Scene(scene);
+		g_bCutScene = false;
+	}
+	if (KEYPUSH(KEY_TYPE::TAB) && KEYPUSH(KEY_TYPE::F7))
+	{
+		/*GachaSceneDesc sceneDesc{ L"YeopoMap",HERO::YEOPO};
+			SCENE.Add_SubScene(make_shared<GachaScene>(sceneDesc));
+		SCENE.Exchange_Scene();*/
 
+		shared_ptr<LoadingScene> scene = make_shared<LoadingScene>(make_shared<KrisScene>());
+		scene->Set_StaticObjects(m_StaticObject);
+		PHYSX.Set_CharacterControllerNull();
+		SCENE.Change_Scene(scene);
+		g_bCutScene = false;
 	}
 }
 
@@ -140,33 +181,35 @@ HRESULT KrisScene::Load_Scene()
 
 	//Map
 	RESOURCES.CreateModel(L"..\\Resources\\Models\\MapObject\\Kris\\", false);
+	RESOURCES.CreateModel(L"..\\Resources\\Models\\MapObject\\Spike\\", false);
 
 	//Monster
+	RESOURCES.CreateModel(L"..\\Resources\\Models\\Character\\Monster\\Boss_Spike\\", false);
 	RESOURCES.CreateModel(L"..\\Resources\\Models\\Character\\Monster\\Silversword_Soldier\\", false);
 	RESOURCES.CreateModel(L"..\\Resources\\Models\\Character\\Monster\\Alpaca_White\\", false);
 	RESOURCES.CreateModel(L"..\\Resources\\Models\\Character\\Monster\\Alpaca_Brown\\", false);
 	RESOURCES.CreateModel(L"..\\Resources\\Models\\Character\\Monster\\Alpaca_Black\\", false);
+
 	RESOURCES.CreateModel(L"..\\Resources\\Models\\Character\\Monster\\Wolf\\", false);
 	RESOURCES.CreateModel(L"..\\Resources\\Models\\Character\\Monster\\Succubus_Scythe\\", false);
 	RESOURCES.CreateModel(L"..\\Resources\\Models\\Character\\Monster\\Undead_Priest\\", false);
+	RESOURCES.CreateModel(L"..\\Resources\\Models\\Character\\Monster\\EntSoldier\\", false);
 
 	auto player = Load_Player();
 	Load_Camera(player);
 	Load_MapFile(L"KrisMap", player);
 
-	//Load_Monster(1, L"Silversword_Soldier", player);
-	//Load_Monster(1, L"Succubus_Scythe", player);
-	//Load_Monster(1, L"Undead_Priest", player);
-	Load_Monster(1, L"Alpaca_White", player);
-	Load_Monster(1, L"Alpaca_Brown", player);
-	Load_Monster(1, L"Alpaca_Black", player);
-	Load_Monster(1, L"Wolf", player);
+	Load_Monster(5, L"Alpaca_White", player);
+	Load_Monster(5, L"Alpaca_Brown", player);
+	Load_Monster(5, L"Alpaca_Black", player); 
+	Load_Monster(5, L"Bad_Alpaca_White", player);
+	Load_Monster(5, L"Bad_Alpaca_Brown", player);
+	Load_Monster(5, L"Bad_Alpaca_Black", player);
 
-	//Load_Boss_Spike();
-
-
+	Load_Boss_Dellons(player);				
+	
 	Load_Ui(player);
-
+	Load_EventScript();
 	return S_OK;
 }
 
@@ -193,7 +236,7 @@ shared_ptr<GameObject> KrisScene::Load_Player()
 
 		ObjPlayer->Add_Component(make_shared<Transform>());
 
-		ObjPlayer->Get_Transform()->Set_State(Transform_State::POS, _float4(-0.f, 0.f, 0.f, 1.f));
+		ObjPlayer->Get_Transform()->Set_State(Transform_State::POS, _float4(0.f, 0.f, 0.f, 1.f));
 		{
 			shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
 
@@ -227,7 +270,7 @@ shared_ptr<GameObject> KrisScene::Load_Player()
 			controller->Create_Controller();
 		}
 		ObjPlayer->Set_DrawShadow(true);
-		ObjPlayer->Set_ObjectGroup(OBJ_PLAYER);
+		ObjPlayer->Set_ObjectGroup(OBJ_TEAM);
 
 		Add_GameObject(ObjPlayer,true);
 
@@ -329,7 +372,7 @@ void KrisScene::Load_Camera(shared_ptr<GameObject> pPlayer)
 
 }
 
-void KrisScene::Load_Monster(_uint iCnt, const wstring& strMonsterTag, shared_ptr<GameObject> pPlayer)
+void KrisScene::Load_Monster(_uint iCnt, const wstring& strMonsterTag, shared_ptr<GameObject> pPlayer, _bool bCharacterController)
 {
 	{
 		for (_uint i = 0; i < iCnt; i++)
@@ -339,7 +382,13 @@ void KrisScene::Load_Monster(_uint iCnt, const wstring& strMonsterTag, shared_pt
 
 			ObjMonster->Add_Component(make_shared<Transform>());
 
-			ObjMonster->Get_Transform()->Set_State(Transform_State::POS, _float4(0.f, 0.f, (rand() % 5) + 30.f, 1.f));
+			_float fRan = 0;
+			if (rand() % 2 == 0)
+				fRan = -1.f;
+			else
+				fRan = 1.f;
+
+			ObjMonster->Get_Transform()->Set_State(Transform_State::POS, _float4(_float(rand() % 20) * fRan, 0.f, _float(rand() % 15) + 30.f, 1.f));
 			{
 				shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
 
@@ -357,10 +406,14 @@ void KrisScene::Load_Monster(_uint iCnt, const wstring& strMonsterTag, shared_pt
 					ObjMonster->Add_Component(make_shared<Succubus_Scythe_FSM>());
 				else if (strMonsterTag == L"Undead_Priest")
 					ObjMonster->Add_Component(make_shared<Undead_Priest_FSM>());
-				else if (strMonsterTag.find(L"Alpaca") != wstring::npos)
+				else if (strMonsterTag.find(L"Bad_Alpaca") != wstring::npos)
 					ObjMonster->Add_Component(make_shared<Alpaca_FSM>());
+				else if (strMonsterTag.find(L"Alpaca") != wstring::npos)
+					ObjMonster->Add_Component(make_shared<NeutralAlpaca_FSM>());
 				else if (strMonsterTag == L"Wolf")
 					ObjMonster->Add_Component(make_shared<Wolf_FSM>());
+				else if (strMonsterTag == L"EntSoldier")
+					ObjMonster->Add_Component(make_shared<EntSoldier_FSM>());
 
 				ObjMonster->Get_FSM()->Set_Target(pPlayer);
 			}
@@ -368,73 +421,27 @@ void KrisScene::Load_Monster(_uint iCnt, const wstring& strMonsterTag, shared_pt
 			ObjMonster->Get_Collider()->Set_CollisionGroup(Monster_Body);
 			ObjMonster->Get_Collider()->Set_Activate(true);
 
-			wstring strMonsterName = (L"Monster") + to_wstring(i);
+			wstring strMonsterName = strMonsterTag + to_wstring(i);
 			ObjMonster->Set_Name(strMonsterName);
 			{
-				auto controller = make_shared<CharacterController>();
-				ObjMonster->Add_Component(controller);
-				auto& desc = controller->Get_CapsuleControllerDesc();
-				desc.radius = 0.5f;
-				desc.height = 5.f;
-				_float3 vPos = ObjMonster->Get_Transform()->Get_State(Transform_State::POS).xyz();
-				desc.position = { vPos.x, vPos.y, vPos.z };
-				controller->Create_Controller();
+				//Alpaca and Wolf don't use character controller
+				if (bCharacterController)
+				{
+					auto controller = make_shared<CharacterController>();
+					ObjMonster->Add_Component(controller);
+					auto& desc = controller->Get_CapsuleControllerDesc();
+					desc.radius = 0.5f;
+					desc.height = 5.f;
+					_float3 vPos = ObjMonster->Get_Transform()->Get_State(Transform_State::POS).xyz();
+					desc.position = { vPos.x, vPos.y, vPos.z };
+					controller->Create_Controller();
+				}
 			}
 			ObjMonster->Set_ObjectGroup(OBJ_MONSTER);
 
 			Add_GameObject(ObjMonster);
 		}
 	}
-}
-
-void KrisScene::Load_Boss_Mir(shared_ptr<GameObject> pPlayer)
-{
-	// Add. Monster
-	shared_ptr<GameObject> ObjMonster = make_shared<GameObject>();
-
-	ObjMonster->Add_Component(make_shared<Transform>());
-
-	ObjMonster->Get_Transform()->Set_State(Transform_State::POS, _float4(0.f, 0.f, 0.f, 1.f));
-	{
-		shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
-
-		shared_ptr<ModelAnimator> animator = make_shared<ModelAnimator>(shader);
-		{
-			shared_ptr<Model> model = RESOURCES.Get<Model>(L"Boss_Mir");
-			animator->Set_Model(model);
-		}
-
-		ObjMonster->Add_Component(animator);
-		ObjMonster->Add_Component(make_shared<Boss_Mir_FSM>());
-		ObjMonster->Get_FSM()->Set_Target(pPlayer);
-	}
-	ObjMonster->Add_Component(make_shared<OBBBoxCollider>(_float3{ 2.f, 4.f, 6.f })); //obbcollider
-	ObjMonster->Get_Collider()->Set_CollisionGroup(Monster_Body);
-	ObjMonster->Get_Collider()->Set_Activate(true);
-
-	ObjMonster->Add_Component(make_shared<CounterMotionTrailScript>());
-
-	wstring strMonsterName = (L"Boss_Mir");
-	ObjMonster->Set_Name(strMonsterName);
-	{
-		auto controller = make_shared<CharacterController>();
-		ObjMonster->Add_Component(controller);
-
-		auto& desc = controller->Get_CapsuleControllerDesc();
-		desc.radius = 4.5f;
-		desc.height = 5.f;
-		desc.climbingMode = PxCapsuleClimbingMode::eCONSTRAINED;
-
-		_float3 vPos = ObjMonster->Get_Transform()->Get_State(Transform_State::POS).xyz() +
-			ObjMonster->Get_Transform()->Get_State(Transform_State::LOOK);
-		desc.position = { vPos.x, vPos.y, vPos.z };
-		controller->Create_Controller();
-		controller->Get_Actor()->setStepOffset(0.1f);
-
-	}
-	ObjMonster->Set_ObjectGroup(OBJ_MONSTER);
-	ObjMonster->Set_VelocityMap(true);
-	Add_GameObject(ObjMonster);
 }
 
 void KrisScene::Load_Boss_Dellons(shared_ptr<GameObject> pPlayer)
@@ -510,148 +517,62 @@ void KrisScene::Load_Boss_Dellons(shared_ptr<GameObject> pPlayer)
 	}
 }
 
-void KrisScene::Load_Boss_Spike(shared_ptr<GameObject> pPlayer)
-{
-	{
-		// Add. Boss_Dellons
-		shared_ptr<GameObject> ObjMonster = make_shared<GameObject>();
-
-		ObjMonster->Add_Component(make_shared<Transform>());
-
-		ObjMonster->Get_Transform()->Set_State(Transform_State::POS, _float4(0.f, 0.f, 55.f, 1.f));
-		{
-			shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
-
-			shared_ptr<ModelAnimator> animator = make_shared<ModelAnimator>(shader);
-			{
-				shared_ptr<Model> model = RESOURCES.Get<Model>(L"Boss_Spike");
-				animator->Set_Model(model);
-			}
-
-			ObjMonster->Add_Component(animator);
-			ObjMonster->Add_Component(make_shared<Boss_Spike_FSM>());
-			ObjMonster->Get_FSM()->Set_Target(pPlayer);
-		}
-		ObjMonster->Set_Name(L"Boss_Spike");
-		ObjMonster->Set_VelocityMap(true);
-		ObjMonster->Add_Component(make_shared<OBBBoxCollider>(_float3{ 0.5f, 0.8f, 0.5f })); //obbcollider
-		ObjMonster->Get_Collider()->Set_CollisionGroup(Monster_Body);
-		ObjMonster->Get_Collider()->Set_Activate(true);
-
-		ObjMonster->Add_Component(make_shared<CounterMotionTrailScript>());
-
-		{
-			auto controller = make_shared<CharacterController>();
-			ObjMonster->Add_Component(controller);
-			auto& desc = controller->Get_CapsuleControllerDesc();
-			desc.radius = 0.5f;
-			desc.height = 5.f;
-			_float3 vPos = ObjMonster->Get_Transform()->Get_State(Transform_State::POS).xyz();
-			desc.position = { vPos.x, vPos.y, vPos.z };
-			controller->Create_Controller();
-		}
-		ObjMonster->Set_DrawShadow(true);
-		ObjMonster->Set_ObjectGroup(OBJ_MONSTER);
-		Add_GameObject(ObjMonster);
-
-
-		//Add. Player's Weapon
-		shared_ptr<GameObject> ObjWeapon = make_shared<GameObject>();
-
-		ObjWeapon->Add_Component(make_shared<Transform>());
-		{
-			shared_ptr<Shader> shader = RESOURCES.Get<Shader>(L"Shader_Model.fx");
-
-			shared_ptr<ModelRenderer> renderer = make_shared<ModelRenderer>(shader);
-			{
-				shared_ptr<Model> model = RESOURCES.Get<Model>(L"Weapon_Spike");
-				renderer->Set_Model(model);
-			}
-
-			ObjWeapon->Add_Component(renderer);
-
-			WeaponScript::WEAPONDESC desc;
-			desc.strBoneName = L"Bip001-Prop1";
-			desc.matPivot = _float4x4::CreateRotationX(-XM_PI / 2.f) * _float4x4::CreateRotationZ(XM_PI);
-			desc.pWeaponOwner = ObjMonster;
-
-			ObjWeapon->Add_Component(make_shared<WeaponScript>(desc));
-		}
-		ObjWeapon->Set_DrawShadow(true);
-		ObjWeapon->Set_Name(L"Weapon_Boss_Spike");
-		ObjWeapon->Set_VelocityMap(true);
-		Add_GameObject(ObjWeapon);
-	}
-}
-
 void KrisScene::Load_Ui(shared_ptr<GameObject> pPlayer)
 {
-	wstring assetPath = L"..\\Resources\\Textures\\UITexture\\Main\\";
+	list<shared_ptr<GameObject>>& tmp = static_pointer_cast<LoadingScene>(CUR_SCENE)->Get_StaticObjectsFromLoader();
+	Load_UIFile(L"..\\Resources\\UIData\\UI_Controller.dat", tmp, false);
 
-	for (auto& entry : fs::recursive_directory_iterator(assetPath))
-	{
-		if (entry.is_directory())
-			continue;
-
-		wstring filePath = entry.path().wstring();
-		wstring fileName = entry.path().filename().wstring();
-		Utils::DetachExt(fileName);
-		RESOURCES.Load<Texture>(fileName, filePath);
-	}
-	auto scene = CUR_SCENE;
-	vector<shared_ptr<GameObject>>& tmp = static_pointer_cast<LoadingScene>(CUR_SCENE)->Get_StaticObjectsFromLoader();
 	Load_UIFile(L"..\\Resources\\UIData\\UI_Main.dat", tmp);
 	Load_UIFile(L"..\\Resources\\UIData\\UI_Main_Button.dat", tmp);
 	Load_UIFile(L"..\\Resources\\UIData\\UI_Char_Change.dat", tmp);
-	//Load_UIFile(L"..\\Resources\\UIData\\UI_Gacha.dat");
-	Load_UIFile(L"..\\Resources\\UIData\\UI_Card_Deck.dat", tmp, false);
-	Load_UIFile(L"..\\Resources\\UIData\\UI_Target_LockOn.dat", tmp, false);
-	//Load_UIFile(L"..\\Resources\\UIData\\UI_MonsterHp.dat", tmp);
-	//Load_UIFile(L"..\\Resources\\UIData\\UI_Mouse.dat");
-
-
-	/*{
-		auto pObj = make_shared<GameObject>();
-		pObj->Set_Name(L"Main_Ui_Controller");
-
-		auto pScript = make_shared<MainUiController>();
-		pObj->Add_Component(pScript);
-
-		pObj->Set_LayerIndex(Layer_UI);
-		Add_GameObject(pObj, true);
-	}*/
+	Load_UIFile(L"..\\Resources\\UIData\\UI_Card_Deck.dat", tmp, false, false);
+	Load_UIFile(L"..\\Resources\\UIData\\UI_Target_LockOn.dat", tmp, false, false);
+	Load_UIFile(L"..\\Resources\\UIData\\UI_Cur_Quest.dat", tmp, false, false);
+	Load_UIFile(L"..\\Resources\\UIData\\UI_Setting.dat", tmp, false, false);
 
 	{
-		auto pObj = make_shared<GameObject>();
-		pObj->Set_Name(L"UI_Gacha_Controller");
-
-		auto pScript = make_shared<UiGachaController>();
-		pObj->Add_Component(pScript);
-
-		pObj->Set_LayerIndex(Layer_UI);
-		Add_GameObject(pObj, true);
+		weak_ptr<GameObject> pObj = Get_UI(L"Main_UI_Controller");
+		if (false == pObj.expired())
+		{
+			auto pScript = make_shared<MainUiController>();
+			pObj.lock()->Add_Component(pScript);
+		}
 	}
 
 	{
-		auto pObj = make_shared<GameObject>();
-		pObj->Set_Name(L"UI_Card_Deck_Controller");
-
-		auto pScript = make_shared<UiCardDeckController>();
-		pObj->Add_Component(pScript);
-
-		pObj->Set_LayerIndex(Layer_UI);
-		Add_GameObject(pObj, true);
+		weak_ptr<GameObject> pObj = Get_UI(L"UI_Gacha_Controller");
+		if (false == pObj.expired())
+		{
+			auto pScript = make_shared<UiGachaController>();
+			pObj.lock()->Add_Component(pScript);
+		}
 	}
 
 	{
-		auto pObj = make_shared<GameObject>();
-		pObj->Set_Name(L"UI_Damage_Controller");
+		weak_ptr<GameObject> pObj = Get_UI(L"UI_Card_Deck_Controller");
+		if (false == pObj.expired())
+		{
+			auto pScript = make_shared<UiCardDeckController>();
+			pObj.lock()->Add_Component(pScript);
+		}
+	}
 
-		auto pScript = make_shared<UiDamageCreate>();
-		pObj->Add_Component(pScript);
+	{
+		weak_ptr<GameObject> pObj = Get_UI(L"UI_Damage_Controller");
+		if (false == pObj.expired())
+		{
+			auto pScript = make_shared<UiDamageCreate>();
+			pObj.lock()->Add_Component(pScript);
+		}
+	}
 
-		pObj->Set_LayerIndex(Layer_UI);
-		Add_GameObject(pObj, true);
+	{
+		weak_ptr<GameObject> pObj = Get_UI(L"UI_UseItem_Slot_Controller");
+		if (false == pObj.expired())
+		{
+			auto pScript = make_shared<UiUseItemSlot>();
+			pObj.lock()->Add_Component(pScript);
+		}
 	}
 
 	{
@@ -663,28 +584,50 @@ void KrisScene::Load_Ui(shared_ptr<GameObject> pPlayer)
 		}
 	}
 
-	/*{
-		auto pObj = make_shared<GameObject>();
-		pObj->Set_Name(L"UI_Monster_Hp");
-
-		auto pScript = make_shared<UiMonsterHp>();
-		pObj->Add_Component(pScript);
-
-		pObj->Set_LayerIndex(Layer_UI);
-		Add_GameObject(pObj, true);
-	}*/
-
 	{
-		auto pObj = make_shared<GameObject>();
-		pObj->Set_Name(L"UI_Target_LockOn");
-
-		auto pScript = make_shared<UiTargetLockOn>();
-		pObj->Add_Component(pScript);
-
-		pObj->Set_LayerIndex(Layer_UI);
-		Add_GameObject(pObj, true);
+		weak_ptr<GameObject> pObj = Get_UI(L"UI_Target_LockOn");
+		if (false == pObj.expired())
+		{
+			auto pScript = make_shared<UiTargetLockOn>();
+			pObj.lock()->Add_Component(pScript);
+		}
 	}
 
+	{
+		weak_ptr<GameObject> pObj = Get_UI(L"UI_Setting_Controller");
+		if (false == pObj.expired())
+		{
+			auto pScript = make_shared<UiSettingController>();
+			pObj.lock()->Add_Component(pScript);
+		}
+	}
+
+	{
+		weak_ptr<GameObject> pObj = Get_UI(L"UI_Dialog_Controller");
+		if (false == pObj.expired())
+		{
+			auto pScript = make_shared<UiQuestController>();
+			pObj.lock()->Add_Component(pScript);
+		}
+	}
+
+	{
+		weak_ptr<GameObject> pObj = Get_UI(L"UI_Boss_Dialog");
+		if (false == pObj.expired())
+		{
+			auto pScript = make_shared<UiBossDialog>();
+			pObj.lock()->Add_Component(pScript);
+		}
+	}
+
+	{
+		weak_ptr<GameObject> pObj = Get_UI(L"UI_Interaction");
+		if (false == pObj.expired())
+		{
+			auto pScript = make_shared<UIInteraction>();
+			pObj.lock()->Add_Component(pScript);
+		}
+	}
 
 	{
 		auto pObj = Get_UI(L"UI_Combo_Effect");
@@ -695,13 +638,6 @@ void KrisScene::Load_Ui(shared_ptr<GameObject> pPlayer)
 		}
 	}
 
-
-
-
-
-
-
-
 	{
 		auto pObj = Get_UI(L"UI_Skill_Use_Gauge");
 		if (nullptr != pObj)
@@ -711,6 +647,14 @@ void KrisScene::Load_Ui(shared_ptr<GameObject> pPlayer)
 		}
 	}
 
+	{
+		auto pObj = Get_UI(L"UI_Costume_Controller");
+		if (nullptr != pObj)
+		{
+			auto pScript = make_shared<UiCostumeController>();
+			pObj->Add_Component(pScript);
+		}
+	}
 
 	{
 		weak_ptr<GameObject> pObj = Get_UI(L"UI_Card_Deck_Exit");
@@ -718,21 +662,40 @@ void KrisScene::Load_Ui(shared_ptr<GameObject> pPlayer)
 		{
 			pObj.lock()->Get_Button()->AddOnClickedEvent([]()
 				{
-					CUR_SCENE->Get_GameObject(L"UI_Card_Deck_Controller")->Get_Script<UiCardDeckController>()->Render_Off();
+					CUR_SCENE->Get_GameObject(L"UI_Card_Deck_Controller")->Get_Script<UiCardDeckController>()->Set_Render(false);
 				});
 		}
 	}
 
+	{
+		weak_ptr<GameObject> pObj = Get_UI(L"UI_Char_Change");
+		if (false == pObj.expired())
+		{
+			auto pScript = make_shared<UiCharChange>();
+			pObj.lock()->Add_Component(pScript);
+		}
+	}
 
 	{
-		auto pObj = make_shared<GameObject>();
-		pObj->Set_Name(L"UI_Char_Change");
+		auto pObj = Get_UI(L"UI_Main_Button0");
+		if (nullptr != pObj)
+		{
+			pObj->Get_Button()->AddOnClickedEvent([]()
+				{
+					CUR_SCENE->Get_UI(L"UI_Setting_Controller")->Get_Script<UiSettingController>()->Set_Render(true);
+				});
+		}
+	}
 
-		auto pScript = make_shared<UiCharChange>();
-		pObj->Add_Component(pScript);
-
-		pObj->Set_LayerIndex(Layer_UI);
-		Add_GameObject(pObj, true);
+	{
+		auto pObj = Get_UI(L"UI_Main_Button1");
+		if (nullptr != pObj)
+		{
+			pObj->Get_Button()->AddOnClickedEvent([]()
+				{
+					CUR_SCENE->Get_UI(L"UI_Card_Deck_Controller")->Get_Script<UiCardDeckController>()->Set_Render(true);
+				});
+		}
 	}
 
 	{
@@ -741,62 +704,23 @@ void KrisScene::Load_Ui(shared_ptr<GameObject> pPlayer)
 		{
 			pObj->Get_Button()->AddOnClickedEvent([]()
 				{
-					CUR_SCENE->Get_UI(L"UI_Card_Deck_Controller")->Get_Script<UiCardDeckController>()->Render_On();
+					CUR_SCENE->Get_UI(L"UI_Costume_Controller")->Get_Script<UiCostumeController>()->Create_Costume();
 				});
 		}
 	}
 
-
-
-	// test code
 	{
-		/*auto pObj = Get_GameObject(L"Boss_Dellons");
-			Load_UIFile(L"..\\Resources\\UIData\\UI_BossHpBar.dat");
-		if(pObj)
+		for (_uint i = 0; i < 7; ++i)
 		{
+			if (1 == i)
+				continue;
 
-			auto pScript = make_shared<UIBossHpBar>();
-			pObj->Add_Component(pScript);
-		}*/
-	}
-
-
-
-
-
-
-
-	{
-		auto pScript = make_shared<UiSkillButtonEffect>();
-		auto pObj = Get_UI(L"UI_Skill0_Effect");
-		if (nullptr != pObj)
-			pObj->Add_Component(pScript);
-
-		pScript = make_shared<UiSkillButtonEffect>();
-		pObj = Get_UI(L"UI_Skill2_Effect");
-		if (nullptr != pObj)
-			pObj->Add_Component(pScript);
-
-		pScript = make_shared<UiSkillButtonEffect>();
-		pObj = Get_UI(L"UI_Skill3_Effect");
-		if (nullptr != pObj)
-			pObj->Add_Component(pScript);
-
-		pScript = make_shared<UiSkillButtonEffect>();
-		pObj = Get_UI(L"UI_Skill4_Effect");
-		if (nullptr != pObj)
-			pObj->Add_Component(pScript);
-
-		pScript = make_shared<UiSkillButtonEffect>();
-		pObj = Get_UI(L"UI_Skill5_Effect");
-		if (nullptr != pObj)
-			pObj->Add_Component(pScript);
-
-		pScript = make_shared<UiSkillButtonEffect>();
-		pObj = Get_UI(L"UI_Skill6_Effect");
-		if (nullptr != pObj)
-			pObj->Add_Component(pScript);
-
+			wstring strName = L"UI_Skill" + to_wstring(i) + L"_Effect";
+			auto pScript = make_shared<UiSkillButtonEffect>();
+			auto pObj = Get_UI(strName);
+			if (nullptr != pObj)
+				pObj->Add_Component(pScript);
+		}
 	}
 
 	{
@@ -817,77 +741,7 @@ void KrisScene::Load_Ui(shared_ptr<GameObject> pPlayer)
 		if (nullptr != pObj) {
 			pObj->Add_Component(pScript);
 		}
-
 	}
-
-	{
-		for (_uint i = 0; i < 32; ++i)
-		{
-			auto pScript = make_shared<UiCardDeckInvenChange>(0);
-			wstring strTemp = L"UI_Card_Deck_Inven";
-			strTemp += to_wstring(i);
-			weak_ptr<GameObject> pObj = Get_UI(strTemp);
-			if (true != pObj.expired())
-			{
-				pObj.lock()->Add_Component(pScript);
-				pObj.lock()->Get_Button()->AddOnClickedEvent([pObj]()
-					{
-						CUR_SCENE->Get_UI(L"UI_Card_Deck_Controller")->Get_Script<UiCardDeckController>()->Click_Deck_Inven(pObj.lock()->Get_Name());
-					});
-			}
-		}
-
-		for (_uint i = 0; i < 32; ++i)
-		{
-			auto pScript = make_shared<UiCardDeckInvenChange>(1);
-			wstring strTemp = L"UI_Card_Deck_Inven_Element";
-			strTemp += to_wstring(i);
-			auto pObj = Get_UI(strTemp);
-			if (nullptr != pObj)
-				pObj->Add_Component(pScript);
-		}
-
-		for (_uint i = 0; i < 32; ++i)
-		{
-			auto pScript = make_shared<UiCardDeckInvenChange>(2);
-			wstring strTemp = L"UI_Card_Deck_InvenBg";
-			strTemp += to_wstring(i);
-			auto pObj = Get_UI(strTemp);
-			if (nullptr != pObj)
-				pObj->Add_Component(pScript);
-		}
-	}
-
-	{
-		for (_uint i = 0; i < 3; ++i)
-		{
-			wstring strTemp = L"UI_Card_Deck";
-			strTemp += to_wstring(i);
-			weak_ptr<GameObject> pObj = Get_UI(strTemp);
-			if (true != pObj.expired())
-			{
-				pObj.lock()->Get_Button()->AddOnClickedEvent([pObj]()
-					{
-						CUR_SCENE->Get_UI(L"UI_Card_Deck_Controller")->Get_Script<UiCardDeckController>()->Click_Deck_Select(pObj.lock()->Get_Name());
-					});
-			}
-		}
-
-		for (_uint i = 0; i < 3; ++i)
-		{
-			wstring strTemp = L"UI_Card_Deck_X";
-			strTemp += to_wstring(i);
-			weak_ptr<GameObject> pObj = Get_UI(strTemp);
-			if (true != pObj.expired())
-			{
-				pObj.lock()->Get_Button()->AddOnClickedEvent([pObj]()
-					{
-						CUR_SCENE->Get_UI(L"UI_Card_Deck_Controller")->Get_Script<UiCardDeckController>()->Click_Deck_X(pObj.lock()->Get_Name());
-					});
-			}
-		}
-	}
-
 }
 
 void KrisScene::Load_Debug()
@@ -902,4 +756,21 @@ void KrisScene::Load_Debug()
 		debugText->Get_Script<ObjectTransformDebug>()->Set_Target(Get_GameObject(L"Boss_Spike"));
 		Add_GameObject(debugText);
 	}
+}
+
+void KrisScene::Load_EventScript()
+{
+	{
+		shared_ptr<GameObject> obj = make_shared<GameObject>();
+		obj->GetOrAddTransform()->Set_State(Transform_State::POS, _float4(1.619f, -0.029f, -27.929f, 1.f));
+		obj->Add_Component(make_shared<AABBBoxCollider>(_float3(10.f, 4.f, 4.f)));
+		obj->Get_Collider()->Set_Activate(true);
+		obj->Get_Collider()->Set_CollisionGroup(MAPObject);
+		obj->Set_Name(L"Alpaca_Exit");
+
+		Add_GameObject(obj);
+
+		
+	}
+
 }

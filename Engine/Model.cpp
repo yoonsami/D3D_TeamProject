@@ -283,7 +283,7 @@ void Model::ReadMaterial(const wstring& strPath)
 									}
 								}
 							}
-							material->Set_SubMap(0, texture_R);
+							material->Set_TextureMap(texture_R,TextureMapType::TEXTURE7);
 						}
 					}
 				}

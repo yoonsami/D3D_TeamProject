@@ -7,6 +7,8 @@
 #include "UiDamageCreate.h"
 #include "ObjectDissolve.h"
 #include "UiMonsterHp.h"
+#include "Model.h"
+#include "CharacterController.h"
 
 HRESULT Alpaca_FSM::Init()
 {
@@ -26,7 +28,7 @@ HRESULT Alpaca_FSM::Init()
 
         m_pAttackCollider = attackCollider;
 
-        CUR_SCENE->Add_GameObject(m_pAttackCollider.lock());
+        EVENTMGR.Create_Object(m_pAttackCollider.lock());
         m_pAttackCollider.lock()->Get_Collider()->Set_Activate(false);
 
         m_pAttackCollider.lock()->Add_Component(make_shared<AttackColliderInfoScript>());
@@ -35,7 +37,8 @@ HRESULT Alpaca_FSM::Init()
 
         m_pCamera = CUR_SCENE->Get_MainCamera();
 
-
+        for (auto& material : Get_Owner()->Get_Model()->Get_Materials())
+            material->Get_MaterialDesc().emissive = Color(0.5f, 0.1f, 0.5f, 1.f);
 
         m_fRunSpeed = 6.f;
         m_fKnockBackSpeed = 4.f;
@@ -54,6 +57,8 @@ HRESULT Alpaca_FSM::Init()
 
 void Alpaca_FSM::Tick()
 {
+    DeadCheck();
+
     State_Tick();
 
     if (!m_pAttackCollider.expired())
@@ -68,7 +73,7 @@ void Alpaca_FSM::State_Tick()
     State_Init();
 
     m_iCurFrame = Get_CurFrame();
-
+    Recovery_Color();
     switch (m_eCurState)
     {
     case STATE::b_idle:
@@ -80,8 +85,11 @@ void Alpaca_FSM::State_Tick()
     case STATE::n_run:
         n_run();
         break;
-    case STATE::die:
-        die();
+    case STATE::die_01:
+        die_01();
+        break;
+    case STATE::die_02:
+        die_02();
         break;
     case STATE::gaze_b:
         gaze_b();
@@ -139,8 +147,7 @@ void Alpaca_FSM::State_Tick()
         break;
     }
 
-    if (!m_pGroupEffect.expired())
-        m_pGroupEffect.lock()->Get_Transform()->Set_WorldMat(Get_Transform()->Get_WorldMatrix());
+    Update_GroupEffectWorldPos(Get_Owner()->Get_Transform()->Get_WorldMatrix());
 
     if (m_iPreFrame != m_iCurFrame)
         m_iPreFrame = m_iCurFrame;
@@ -161,8 +168,11 @@ void Alpaca_FSM::State_Init()
         case STATE::n_run:
             n_run_Init();
             break;
-        case STATE::die:
-            die_Init();
+        case STATE::die_01:
+            die_01_Init();
+            break;
+        case STATE::die_02:
+            die_02_Init();
             break;
         case STATE::gaze_b:
             gaze_b_Init();
@@ -223,43 +233,11 @@ void Alpaca_FSM::State_Init()
     }
 }
 
-void Alpaca_FSM::OnCollision(shared_ptr<BaseCollider> pCollider, _float fGap)
+void Alpaca_FSM::Get_Hit(const wstring& skillname, _float fDamage, shared_ptr<GameObject> pLookTarget)
 {
-}
+    CUR_SCENE->Get_UI(L"UI_Damage_Controller")->Get_Script<UiDamageCreate>()->Create_Damage_Font(Get_Owner(), fDamage);
 
-void Alpaca_FSM::OnCollisionEnter(shared_ptr<BaseCollider> pCollider, _float fGap)
-{
-    if (pCollider->Get_Owner() == nullptr)
-        return;
-
-    if (!pCollider->Get_Owner()->Get_Script<AttackColliderInfoScript>())
-        return;
-
-    wstring strSkillName = pCollider->Get_Owner()->Get_Script<AttackColliderInfoScript>()->Get_SkillName();
-
-    if (!m_bInvincible)
-    {
-        shared_ptr<GameObject> targetToLook = nullptr;
-
-        if (strSkillName.find(L"_Skill") != wstring::npos)
-            targetToLook = pCollider->Get_Owner();
-        else
-            targetToLook = pCollider->Get_Owner()->Get_Script<AttackColliderInfoScript>()->Get_ColliderOwner();
-
-        if (targetToLook == nullptr)
-            return;
-
-        Get_Hit(strSkillName, targetToLook);
-    }
-}
-
-void Alpaca_FSM::OnCollisionExit(shared_ptr<BaseCollider> pCollider, _float fGap)
-{
-}
-
-void Alpaca_FSM::Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookTarget)
-{
-    CUR_SCENE->Get_UI(L"UI_Damage_Controller")->Get_Script<UiDamageCreate>()->Create_Damage_Font(Get_Owner());
+    m_pOwner.lock()->Get_Hurt(fDamage);
 
     auto pScript = m_pOwner.lock()->Get_Script<UiMonsterHp>();
     if (nullptr == pScript)
@@ -277,6 +255,7 @@ void Alpaca_FSM::Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookT
     m_vHitDir = vOppositePos - vMyPos;
     m_vHitDir.y = 0.f;
     m_vHitDir.Normalize();
+	Set_HitColor();
 
     if (skillname == NORMAL_ATTACK || skillname == NORMAL_SKILL)
     {
@@ -331,24 +310,6 @@ void Alpaca_FSM::Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookT
 
 }
 
-void Alpaca_FSM::AttackCollider_On(const wstring& skillname)
-{
-    if (!m_pAttackCollider.expired())
-    {
-        m_pAttackCollider.lock()->Get_Collider()->Set_Activate(true);
-        m_pAttackCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_SkillName(skillname);
-    }
-}
-
-void Alpaca_FSM::AttackCollider_Off()
-{
-    if (!m_pAttackCollider.expired())
-    {
-        m_pAttackCollider.lock()->Get_Collider()->Set_Activate(false);
-        m_pAttackCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_SkillName(L"");
-    }
-}
-
 void Alpaca_FSM::Set_State(_uint iIndex)
 {
 }
@@ -364,8 +325,16 @@ void Alpaca_FSM::b_idle()
             m_eCurState = STATE::n_run;
         }
 
-        if (Target_In_DetectRange())
-            m_bDetected = true;
+        if (CUR_SCENE->Get_Name() == L"KrisScene")
+        {
+            if (CUR_SCENE->Get_AttackCall())
+                m_bDetected = true;
+        }
+        else
+        {
+            if (Target_In_DetectRange())
+                m_bDetected = true;
+        }
     }
     else
     {
@@ -374,6 +343,8 @@ void Alpaca_FSM::b_idle()
         else
             m_eCurState = STATE::b_run;
     }
+
+    Dead_Setting();
 }
 
 void Alpaca_FSM::b_idle_Init()
@@ -388,6 +359,12 @@ void Alpaca_FSM::b_idle_Init()
     m_vTurnVector = _float3(0.f);
 
     m_bSuperArmor = false;
+
+    if (CUR_SCENE->Get_Name() == L"KrisScene")
+    {
+        if (!CUR_SCENE->Get_AttackCall())
+            m_bInvincible = true;
+    }
 }
 
 void Alpaca_FSM::b_run()
@@ -410,6 +387,7 @@ void Alpaca_FSM::b_run_Init()
     Get_Transform()->Set_Speed(m_fRunSpeed);
 
     m_bSuperArmor = false;
+    m_bInvincible = false;
 }
 
 void Alpaca_FSM::n_run()
@@ -434,13 +412,22 @@ void Alpaca_FSM::n_run()
         m_eCurState = STATE::b_idle;
     }
 
-    if (Target_In_DetectRange())
-        m_bDetected = true;
+    if (CUR_SCENE->Get_Name() == L"KrisScene")
+    {
+        if (CUR_SCENE->Get_AttackCall())
+            m_bDetected = true;
+    }
+    else
+    {
+        if (Target_In_DetectRange())
+            m_bDetected = true;
+    }
 
     if (m_bDetected)
     {
         m_eCurState = STATE::b_run;
     }
+
 }
 
 void Alpaca_FSM::n_run_Init()
@@ -449,20 +436,61 @@ void Alpaca_FSM::n_run_Init()
 
     animator->Set_NextTweenAnim(L"n_run", 0.2f, true, 1.f);
 
-    Get_Transform()->Set_Speed(m_fRunSpeed / 2.f);
+    Get_Transform()->Set_Speed(m_fRunSpeed * 0.2f);
 
     m_vTurnVector = _float3{ (rand() * 2 / _float(RAND_MAX) - 1), 0.f, (rand() * 2 / _float(RAND_MAX) - 1) };
     m_vTurnVector.Normalize();
 
     m_bSuperArmor = false;
+
+    if (CUR_SCENE->Get_Name() == L"KrisScene")
+        m_bInvincible = true;
 }
 
-void Alpaca_FSM::die()
+void Alpaca_FSM::die_01()
 {
+    if (Is_AnimFinished())
+    {
+        auto script = make_shared<ObjectDissolve>(1.f);
+        Get_Owner()->Add_Component(script);
+        script->Init();
+
+        if (!m_pAttackCollider.expired())
+            EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+    }
 }
 
-void Alpaca_FSM::die_Init()
+void Alpaca_FSM::die_01_Init()
 {
+    shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
+
+    animator->Set_NextTweenAnim(L"die_01", 0.2f, false, 1.f);
+    
+    m_bSuperArmor = false;
+    m_bInvincible = true;
+}
+
+void Alpaca_FSM::die_02()
+{
+    if (Is_AnimFinished())
+    {
+        auto script = make_shared<ObjectDissolve>(1.f);
+        Get_Owner()->Add_Component(script);
+        script->Init();
+
+        if (!m_pAttackCollider.expired())
+            EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+    }
+}
+
+void Alpaca_FSM::die_02_Init()
+{
+    shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
+
+    animator->Set_NextTweenAnim(L"die_02", 0.2f, false, 1.f);
+
+    m_bSuperArmor = false;
+    m_bInvincible = true;
 }
 
 void Alpaca_FSM::gaze_b()
@@ -598,12 +626,30 @@ void Alpaca_FSM::airborne_start_Init()
     AttackCollider_Off();
 
     m_bSuperArmor = true;
+
+    Get_CharacterController()->Add_Velocity(5.f);
 }
 
 void Alpaca_FSM::airborne_end()
 {
     if (Is_AnimFinished())
-        m_eCurState = STATE::airborne_up;
+    {
+        if (!m_bIsDead)
+            m_eCurState = STATE::airborne_up;
+        else
+        {
+            m_bInvincible = true;
+
+            Get_Owner()->Get_Animator()->Set_AnimState(true);
+
+            auto script = make_shared<ObjectDissolve>(1.f);
+            Get_Owner()->Add_Component(script);
+            script->Init();
+
+            if (!m_pAttackCollider.expired())
+                EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+        }
+    }
 }
 
 void Alpaca_FSM::airborne_end_Init()
@@ -636,6 +682,9 @@ void Alpaca_FSM::hit()
 
     if (Is_AnimFinished())
         m_eCurState = STATE::b_idle;
+
+
+    Dead_Setting();
 }
 
 void Alpaca_FSM::hit_Init()
@@ -672,7 +721,7 @@ void Alpaca_FSM::knock_start_Init()
 
 void Alpaca_FSM::knock_end()
 {
-    if (Get_CurFrame() < 13)
+    if (m_iCurFrame < 13)
         Get_Transform()->Go_Backward();
 
     if (Is_AnimFinished())
@@ -690,8 +739,22 @@ void Alpaca_FSM::knock_end_Init()
 
 void Alpaca_FSM::knock_end_loop()
 {
-    if (Get_CurFrame() > Get_FinalFrame() / 2)
+    if (m_iCurFrame > Get_FinalFrame() / 2)
         m_eCurState = STATE::knock_up;
+
+    if (m_bIsDead)
+    {
+        m_bInvincible = true;
+
+        Get_Owner()->Get_Animator()->Set_AnimState(true);
+
+        auto script = make_shared<ObjectDissolve>(1.f);
+        Get_Owner()->Add_Component(script);
+        script->Init();
+
+        if (!m_pAttackCollider.expired())
+            EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+    }
 }
 
 void Alpaca_FSM::knock_end_loop_Init()
@@ -701,15 +764,15 @@ void Alpaca_FSM::knock_end_loop_Init()
     animator->Set_NextTweenAnim(L"knock_end_loop", 0.2f, false, 1.f);
 
     m_bSuperArmor = false;
-    auto script = make_shared<ObjectDissolve>(1.f);
-    Get_Owner()->Add_Component(script);
-    script->Init();
 }
 
 void Alpaca_FSM::knock_end_hit()
 {
     if (Is_AnimFinished())
         m_eCurState = STATE::knock_end_loop;
+
+    if (m_bIsDead)
+        m_bInvincible = true;
 }
 
 void Alpaca_FSM::knock_end_hit_Init()
@@ -763,11 +826,27 @@ void Alpaca_FSM::knockdown_start_Init()
 
 void Alpaca_FSM::knockdown_end()
 {
-    if (Get_CurFrame() < 16)
+    if (m_iCurFrame < 16)
         Get_Transform()->Go_Backward();
 
     if (Is_AnimFinished())
-        m_eCurState = STATE::knock_up;
+    {
+        if (!m_bIsDead)
+            m_eCurState = STATE::knock_up;
+        else
+        {
+            m_bInvincible = true;
+
+            Get_Owner()->Get_Animator()->Set_AnimState(true);
+
+            auto script = make_shared<ObjectDissolve>(1.f);
+            Get_Owner()->Add_Component(script);
+            script->Init();
+
+            if (!m_pAttackCollider.expired())
+                EVENTMGR.Delete_Object(m_pAttackCollider.lock());
+        }
+    }
 }
 
 void Alpaca_FSM::knockdown_end_Init()
@@ -786,9 +865,9 @@ void Alpaca_FSM::skill_1100()
     if (m_vTurnVector != _float3(0.f))
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
-    if (Get_CurFrame() == 26)
-        AttackCollider_On(NONE_HIT);
-    else if (Get_CurFrame() == 30)
+    if (m_iCurFrame == 26)
+        AttackCollider_On(NONE_HIT, 2.f);
+    else if (m_iCurFrame == 30)
         AttackCollider_Off();
 
     Set_Gaze();   
@@ -813,9 +892,9 @@ void Alpaca_FSM::skill_2100()
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
     //NORMAL ATTACK
-    if (Get_CurFrame() == 29)
-        AttackCollider_On(NONE_HIT);
-    else if (Get_CurFrame() == 38)
+    if (m_iCurFrame == 29)
+        AttackCollider_On(NONE_HIT, 2.f);
+    else if (m_iCurFrame == 38)
         AttackCollider_Off();
     
     Set_Gaze();
@@ -839,9 +918,9 @@ void Alpaca_FSM::skill_3100()
     if (m_vTurnVector != _float3(0.f))
         Soft_Turn_ToInputDir(m_vTurnVector, m_fTurnSpeed);
 
-    if (Get_CurFrame() == 33)
-        AttackCollider_On(NONE_HIT);
-    else if (Get_CurFrame() == 34)
+    if (m_iCurFrame == 33)
+        AttackCollider_On(NONE_HIT, 2.f);
+    else if (m_iCurFrame == 34)
         AttackCollider_Off();
 
     Set_Gaze();
@@ -924,6 +1003,27 @@ void Alpaca_FSM::Set_Gaze()
         else if (iRan == 3)
             m_eCurState = STATE::gaze_f;
     }
+}
+
+void Alpaca_FSM::Dead_Setting()
+{
+    if (m_bIsDead)
+    {
+        m_bInvincible = true;
+
+        if (rand() % 2 == 0)
+            m_eCurState = STATE::die_01;
+        else
+            m_eCurState = STATE::die_02;
+    }
+}
+
+void Alpaca_FSM::GroundCheck()
+{
+    Ray ray;
+    ray.position = Get_Transform()->Get_State(Transform_State::POS).xyz();
+
+    Get_Transform()->Set_State(Transform_State::POS, _float4(ray.position.x, 0.f, ray.position.z, 1.f));
 }
 
 _float3 Alpaca_FSM::Calculate_TargetTurnVector()

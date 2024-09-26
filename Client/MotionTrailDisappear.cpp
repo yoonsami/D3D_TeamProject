@@ -28,5 +28,5 @@ void MotionTrailDisappear::Tick()
 	m_pOwner.lock()->Get_MotionTrailRenderer()->Get_RenderParamDesc().vec4Params[0].w -= m_fDisappearSpeed * fDT;
 
     if(m_fAcc >= 1.f)
-        CUR_SCENE->Remove_GameObject(Get_Owner());
+        EVENTMGR.Delete_Object(Get_Owner());
 }

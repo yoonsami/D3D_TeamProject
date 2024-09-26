@@ -281,9 +281,10 @@ void GeometryHelper::CreateGrid(shared_ptr<Geometry<VTXTEXDATA>> geometry, _uint
 	{
 		for (_uint x = 0; x < iSizeX + 1; ++x)
 		{
+			_float fTileInterval = 0.1f;
 			VTXTEXDATA v;
-			v.vPosition = _float3(static_cast<_float>(x), 0, static_cast<_float>(z));
-			v.vTexCoord = _float2(static_cast<_float>(x), static_cast<_float>(iSizeZ - z));
+			v.vPosition = _float3(static_cast<_float>(x * fTileInterval), 0, static_cast<_float>(z * fTileInterval));
+			v.vTexCoord = _float2(static_cast<_float>(x * fTileInterval), static_cast<_float>(iSizeZ * fTileInterval - z * fTileInterval));
 
 			vtx.push_back(v);
 		}

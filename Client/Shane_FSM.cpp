@@ -10,7 +10,7 @@
 #include "CoolTimeCheckScript.h"
 #include "Shane_Clone_FSM.h"
 #include "ModelRenderer.h"
-
+#include "CharacterController.h"
 
 Shane_FSM::Shane_FSM()
 {
@@ -30,36 +30,24 @@ HRESULT Shane_FSM::Init()
             animator->Set_CurrentAnim(L"b_idle", true, 1.f);
             m_eCurState = STATE::b_idle;
         }
-        
-        m_pWeapon = CUR_SCENE->Get_GameObject(L"Weapon_Shane");
-
+ 
         m_iDummy_CP_BoneIndex = m_pOwner.lock()->Get_Model()->Get_BoneIndexByName(L"Dummy_Center");
         m_iCamBoneIndex = m_pOwner.lock()->Get_Model()->Get_BoneIndexByName(L"Dummy_Cam");
         m_iSkillCamBoneIndex = m_pOwner.lock()->Get_Model()->Get_BoneIndexByName(L"Dummy_SkillCam");
 
         m_pCamera = CUR_SCENE->Get_MainCamera();
 
-        m_fNormalAttack_AnimationSpeed = 1.2f;
         m_fDetectRange = 5.f;
+
+        m_bEntryTeam = true;
 
         m_bInitialize = true;
     }
 
-
-    shared_ptr<GameObject> attackCollider = make_shared<GameObject>();
-    attackCollider->GetOrAddTransform();
-    attackCollider->Add_Component(make_shared<SphereCollider>(1.f));
-    attackCollider->Get_Collider()->Set_CollisionGroup(Player_Attack);
-
-    m_pAttackCollider = attackCollider;
-
-    CUR_SCENE->Add_GameObject(m_pAttackCollider.lock());
-    m_pAttackCollider.lock()->Get_Collider()->Set_Activate(false);
-
-    m_pAttackCollider.lock()->Add_Component(make_shared<AttackColliderInfoScript>());
-    m_pAttackCollider.lock()->Set_Name(L"Player_AttackCollider");
-    m_pAttackCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_ColliderOwner(Get_Owner());
-
+	m_fNormalAttack_AnimationSpeed = 1.0f;
+	m_fSkillAttack_AnimationSpeed = 1.0f;
+	m_fEvade_AnimationSpeed = 1.5f;
+  
     return S_OK;
 }
 
@@ -69,11 +57,10 @@ void Shane_FSM::Tick()
 
     if (!m_pAttackCollider.expired())
     {
-        //m_pAttack transform set forward
-        m_pAttackCollider.lock()->Get_Transform()->Set_State(Transform_State::POS, Get_Transform()->Get_State(Transform_State::POS) + Get_Transform()->Get_State(Transform_State::LOOK) * 2.f + _float3::Up);
+        
+		m_pAttackCollider.lock()->Get_Transform()->Set_State(Transform_State::POS, Get_Transform()->Get_State(Transform_State::POS) + Get_Transform()->Get_State(Transform_State::LOOK) * 1.5f + _float3::Up);
     }
 
-    Calculate_CamBoneMatrix();
 }
 
 void Shane_FSM::State_Tick()
@@ -81,7 +68,7 @@ void Shane_FSM::State_Tick()
     State_Init();
 
     m_iCurFrame = Get_CurFrame();
-
+    Recovery_Color();
     switch (m_eCurState)
     {
     case STATE::b_idle:
@@ -182,8 +169,7 @@ void Shane_FSM::State_Tick()
         break;
     }
 
-    if (!m_pGroupEffect.expired())
-        m_pGroupEffect.lock()->Get_Transform()->Set_WorldMat(Get_Transform()->Get_WorldMatrix());
+    Update_GroupEffectWorldPos(Get_Owner()->Get_Transform()->Get_WorldMatrix());
 
     if (m_iPreFrame != m_iCurFrame)
         m_iPreFrame = m_iCurFrame;
@@ -296,117 +282,86 @@ void Shane_FSM::State_Init()
     }
 }
 
-void Shane_FSM::OnCollision(shared_ptr<BaseCollider> pCollider, _float fGap)
+void Shane_FSM::Get_Hit(const wstring& skillname, _float fDamage, shared_ptr<GameObject> pLookTarget)
 {
-}
+	//Calculate Damage 
+	m_pOwner.lock()->Get_Hurt(fDamage);
 
-void Shane_FSM::OnCollisionEnter(shared_ptr<BaseCollider> pCollider, _float fGap)
-{
-    if (pCollider->Get_Owner() == nullptr)
-        return;
+	_float3 vMyPos = Get_Transform()->Get_State(Transform_State::POS).xyz();
+	_float3 vOppositePos = pLookTarget->Get_Transform()->Get_State(Transform_State::POS).xyz();
 
-    if (!pCollider->Get_Owner()->Get_Script<AttackColliderInfoScript>())
-        return;
+	m_vHitDir = vOppositePos - vMyPos;
+	m_vHitDir.y = 0.f;
+	m_vHitDir.Normalize();
 
-    wstring strSkillName = pCollider->Get_Owner()->Get_Script<AttackColliderInfoScript>()->Get_SkillName();
+	Set_HitColor();
 
-    if (!m_bInvincible)
-    {
-        shared_ptr<GameObject> targetToLook = nullptr;
-        // skillName에 _Skill 포함이면
-        if (strSkillName.find(L"_Skill") != wstring::npos)
-            targetToLook = pCollider->Get_Owner(); // Collider owner를 넘겨준다
-        else // 아니면
-            targetToLook = pCollider->Get_Owner()->Get_Script<AttackColliderInfoScript>()->Get_ColliderOwner(); // Collider를 만든 객체를 넘겨준다
+	if (skillname == NORMAL_ATTACK || skillname == NORMAL_SKILL)
+	{
+		if (!m_bSuperArmor)
+		{
+			if (m_eCurState == STATE::hit)
+				Reset_Frame();
+			else if (m_eCurState == STATE::knock_end_hit)
+				Reset_Frame();
+			else if (m_eCurState == STATE::knock_end_loop)
+				m_eCurState = STATE::knock_end_hit;
+			else
+				m_eCurState = STATE::hit;
 
-        if (targetToLook == nullptr)
-            return;
+			CUR_SCENE->Get_MainCamera()->Get_Script<MainCameraScript>()->ShakeCamera(0.05f, 0.1f);
 
-        Get_Hit(strSkillName, targetToLook);
-    }
-}
 
-void Shane_FSM::OnCollisionExit(shared_ptr<BaseCollider> pCollider, _float fGap)
-{
-}
+		}
+	}
+	else if (skillname == KNOCKBACK_ATTACK || skillname == KNOCKBACK_SKILL)
+	{
+		if (!m_bSuperArmor)
+		{
+			if (m_eCurState == STATE::knock_end_hit)
+				Reset_Frame();
+			else if (m_eCurState == STATE::knock_end_loop)
+				m_eCurState = STATE::knock_end_hit;
+			else
+				m_eCurState = STATE::knock_start;
 
-void Shane_FSM::Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookTarget)
-{
-    _float3 vMyPos = Get_Transform()->Get_State(Transform_State::POS).xyz();
-    _float3 vOppositePos = pLookTarget->Get_Transform()->Get_State(Transform_State::POS).xyz();
+			CUR_SCENE->Get_MainCamera()->Get_Script<MainCameraScript>()->ShakeCamera(0.1f, 0.2f);
 
-    m_vHitDir = vOppositePos - vMyPos;
-    m_vHitDir.y = 0.f;
-    m_vHitDir.Normalize();
+		}
+	}
+	else if (skillname == KNOCKDOWN_ATTACK || skillname == KNOCKDOWN_SKILL)
+	{
+		if (!m_bSuperArmor)
+		{
+			if (m_eCurState == STATE::knock_end_hit)
+				Reset_Frame();
+			else if (m_eCurState == STATE::knock_end_loop)
+				m_eCurState = STATE::knock_end_hit;
+			else
+				m_eCurState = STATE::knockdown_start;
 
-    if (skillname == NORMAL_ATTACK || skillname == NORMAL_SKILL)
-    {
-        if (!m_bSuperArmor)
-        {
-            if (m_eCurState == STATE::hit)
-                Reset_Frame();
-            else if (m_eCurState == STATE::knock_end_hit)
-                Reset_Frame();
-            else if (m_eCurState == STATE::knock_end_loop)
-                m_eCurState = STATE::knock_end_hit;
-            else
-                m_eCurState = STATE::hit;
-        }
-    }
-    else if (skillname == KNOCKBACK_ATTACK || skillname == KNOCKBACK_SKILL)
-    {
-        if (!m_bSuperArmor)
-        {
-            if (m_eCurState == STATE::knock_end_hit)
-                Reset_Frame();
-            else if (m_eCurState == STATE::knock_end_loop)
-                m_eCurState = STATE::knock_end_hit;
-            else
-                m_eCurState = STATE::knock_start;
-        }
-    }
-    else if (skillname == KNOCKDOWN_ATTACK || skillname == KNOCKDOWN_SKILL)
-    {
-        if (!m_bSuperArmor)
-        {
-            if (m_eCurState == STATE::knock_end_hit)
-                Reset_Frame();
-            else if (m_eCurState == STATE::knock_end_loop)
-                m_eCurState = STATE::knock_end_hit;
-            else
-                m_eCurState = STATE::knockdown_start;
-        }
-    }
-    else if (skillname == AIRBORNE_ATTACK || skillname == AIRBORNE_SKILL)
-    {
-        if (!m_bSuperArmor)
-        {
-            if (m_eCurState == STATE::knock_end_hit)
-                Reset_Frame();
-            else if (m_eCurState == STATE::knock_end_loop)
-                m_eCurState = STATE::knock_end_hit;
-            else
-                m_eCurState = STATE::airborne_start;
-        }
-    }
-}
+			CUR_SCENE->Get_MainCamera()->Get_Script<MainCameraScript>()->ShakeCamera(0.1f, 0.3f);
 
-void Shane_FSM::AttackCollider_On(const wstring& skillname)
-{
-    if (!m_pAttackCollider.expired())
-    {
-        m_pAttackCollider.lock()->Get_Collider()->Set_Activate(true);
-        m_pAttackCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_SkillName(skillname);
-    }
-}
+		}
+	}
+	else if (skillname == AIRBORNE_ATTACK || skillname == AIRBORNE_SKILL)
+	{
+		if (!m_bSuperArmor)
+		{
+			if (m_eCurState == STATE::knock_end_hit)
+				Reset_Frame();
+			else if (m_eCurState == STATE::knock_end_loop)
+				m_eCurState = STATE::knock_end_hit;
+			else
+				m_eCurState = STATE::airborne_start;
 
-void Shane_FSM::AttackCollider_Off()
-{
-    if (!m_pAttackCollider.expired())
-    {
-        m_pAttackCollider.lock()->Get_Collider()->Set_Activate(false);
-        m_pAttackCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_SkillName(L"");
-    }
+			CUR_SCENE->Get_MainCamera()->Get_Script<MainCameraScript>()->ShakeCamera(0.05f, 0.3f);
+
+		}
+	}
+	else
+		CUR_SCENE->Get_MainCamera()->Get_Script<MainCameraScript>()->ShakeCamera(0.05f, 0.03f);
+
 }
 
 void Shane_FSM::Set_State(_uint iIndex)
@@ -415,14 +370,17 @@ void Shane_FSM::Set_State(_uint iIndex)
 
 void Shane_FSM::b_idle()
 {
-    if (KEYPUSH(KEY_TYPE::W) || KEYPUSH(KEY_TYPE::S) ||
-        KEYPUSH(KEY_TYPE::A) || KEYPUSH(KEY_TYPE::D))
-        m_eCurState = STATE::b_run_start;
+    if (!g_bIsCanMouseMove && !g_bCutScene)
+    {
+        if (KEYPUSH(KEY_TYPE::W) || KEYPUSH(KEY_TYPE::S) ||
+            KEYPUSH(KEY_TYPE::A) || KEYPUSH(KEY_TYPE::D))
+            m_eCurState = STATE::b_run_start;
 
-    if (KEYTAP(KEY_TYPE::LBUTTON))
-        m_eCurState = STATE::skill_1100;
+        if (KEYTAP(KEY_TYPE::LBUTTON))
+            m_eCurState = STATE::skill_1100;
 
-    Use_Skill();
+        Use_Skill();
+    }
 }
 
 void Shane_FSM::b_idle_Init()
@@ -462,11 +420,13 @@ void Shane_FSM::b_run_start()
 
         Soft_Turn_ToInputDir(vInputVector, XM_PI * 5.f);
 
+        if (!g_bIsCanMouseMove && !g_bCutScene)
+        {
+            if (KEYTAP(KEY_TYPE::LBUTTON))
+                m_eCurState = STATE::skill_1100;
 
-        if (KEYTAP(KEY_TYPE::LBUTTON))
-            m_eCurState = STATE::skill_1100;
-
-        Use_Skill();
+            Use_Skill();
+        }
     }
 }
 
@@ -497,7 +457,7 @@ void Shane_FSM::b_run()
 
         if (m_tRunEndDelay.fAccTime >= m_tRunEndDelay.fCoolTime)
         {
-            if (Get_CurFrame() % 2 == 0)
+            if (m_iCurFrame % 2 == 0)
                 m_eCurState = STATE::b_run_end_r;
             else
                 m_eCurState = STATE::b_run_end_l;
@@ -506,16 +466,27 @@ void Shane_FSM::b_run()
     else
         Soft_Turn_ToInputDir(vInputVector, XM_PI * 5.f);
 
-    if (KEYPUSH(KEY_TYPE::LSHIFT))
+    if (g_bIsCanMouseMove || g_bCutScene)
     {
-        if (Get_CurFrame() == 1)
-            m_eCurState = STATE::b_sprint;
+        if (m_iCurFrame % 2 == 0)
+            m_eCurState = STATE::b_run_end_r;
+        else
+            m_eCurState = STATE::b_run_end_l;
     }
 
-    if (KEYTAP(KEY_TYPE::LBUTTON))
-        m_eCurState = STATE::skill_1100;
+    if (!g_bIsCanMouseMove && !g_bCutScene)
+    {
+        if (KEYPUSH(KEY_TYPE::LSHIFT))
+        {
+            if (m_iCurFrame == 1)
+                m_eCurState = STATE::b_sprint;
+        }
 
-    Use_Skill();
+        if (KEYTAP(KEY_TYPE::LBUTTON))
+            m_eCurState = STATE::skill_1100;
+
+        Use_Skill();
+    }
 }
 
 void Shane_FSM::b_run_Init()
@@ -542,10 +513,13 @@ void Shane_FSM::b_run_end_r()
     if (Is_AnimFinished())
         m_eCurState = STATE::b_idle;
 
-    if (KEYTAP(KEY_TYPE::LBUTTON))
-        m_eCurState = STATE::skill_1100;
+    if (!g_bIsCanMouseMove && !g_bCutScene)
+    {
+        if (KEYTAP(KEY_TYPE::LBUTTON))
+            m_eCurState = STATE::skill_1100;
 
-    Use_Skill();
+        Use_Skill();
+    }
 }
 
 void Shane_FSM::b_run_end_r_Init()
@@ -573,10 +547,13 @@ void Shane_FSM::b_run_end_l()
     if (Is_AnimFinished())
         m_eCurState = STATE::b_idle;
 
-    if (KEYTAP(KEY_TYPE::LBUTTON))
-        m_eCurState = STATE::skill_1100;
+    if (!g_bIsCanMouseMove && !g_bCutScene)
+    {
+        if (KEYTAP(KEY_TYPE::LBUTTON))
+            m_eCurState = STATE::skill_1100;
 
-    Use_Skill();
+        Use_Skill();
+    }
 }
 
 void Shane_FSM::b_run_end_l_Init()
@@ -606,7 +583,7 @@ void Shane_FSM::b_sprint()
 
         if (m_tRunEndDelay.fAccTime >= m_tRunEndDelay.fCoolTime)
         {
-            if (Get_CurFrame() % 2 == 0)
+            if (m_iCurFrame % 2 == 0)
                 m_eCurState = STATE::b_run_end_r;
             else
                 m_eCurState = STATE::b_run_end_l;
@@ -615,16 +592,27 @@ void Shane_FSM::b_sprint()
     else
         Soft_Turn_ToInputDir(vInputVector, XM_PI * 5.f);
 
-    if (!KEYPUSH(KEY_TYPE::LSHIFT))
+    if (g_bIsCanMouseMove || g_bCutScene)
     {
-        if (Get_CurFrame() < 1 || Get_CurFrame() > 13)
-            m_eCurState = STATE::b_run;
+        if (m_iCurFrame % 2 == 0)
+            m_eCurState = STATE::b_run_end_r;
+        else
+            m_eCurState = STATE::b_run_end_l;
     }
 
-    if (KEYTAP(KEY_TYPE::LBUTTON))
-        m_eCurState = STATE::skill_1100;
+    if (!g_bIsCanMouseMove && !g_bCutScene)
+    {
+        if (!KEYPUSH(KEY_TYPE::LSHIFT))
+        {
+            if (m_iCurFrame < 1 || m_iCurFrame > 13)
+                m_eCurState = STATE::b_run;
+        }
 
-    Use_Skill();
+        if (KEYTAP(KEY_TYPE::LBUTTON))
+            m_eCurState = STATE::skill_1100;
+
+        Use_Skill();
+    }
 }
 
 void Shane_FSM::b_sprint_Init()
@@ -659,6 +647,7 @@ void Shane_FSM::die_Init()
 
 void Shane_FSM::airborne_start()
 {
+    if(m_pOwner.lock()->Get_Script<CoolTimeCheckScript>())
     m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
 
     Soft_Turn_ToInputDir(m_vHitDir, XM_PI * 5.f);
@@ -677,6 +666,8 @@ void Shane_FSM::airborne_start_Init()
 
     m_bInvincible = false;
     m_bSuperArmor = true;
+
+    Get_CharacterController()->Add_Velocity(6.f);
 }
 
 void Shane_FSM::airborne_end()
@@ -713,6 +704,8 @@ void Shane_FSM::airborne_up_Init()
 
 void Shane_FSM::hit()
 {
+	if (m_pOwner.lock()->Get_Script<CoolTimeCheckScript>())
+
     m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
 
     Soft_Turn_ToInputDir(m_vHitDir, XM_PI * 5.f);
@@ -735,6 +728,8 @@ void Shane_FSM::hit_Init()
 
 void Shane_FSM::knock_start()
 {
+	if (m_pOwner.lock()->Get_Script<CoolTimeCheckScript>())
+
     m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
 
     Soft_Turn_ToInputDir(m_vHitDir, XM_PI * 5.f);
@@ -761,7 +756,7 @@ void Shane_FSM::knock_start_Init()
 
 void Shane_FSM::knock_end()
 {
-    if (Get_CurFrame() < 16)
+    if (m_iCurFrame < 16)
         Get_Transform()->Go_Backward();
 
     if (Is_AnimFinished())
@@ -784,7 +779,7 @@ void Shane_FSM::knock_end_loop()
 {
     m_tKnockDownEndCoolTime.fAccTime += fDT;
 
-    if (Get_CurFrame() > Get_FinalFrame() / 2)
+    if (m_iCurFrame > Get_FinalFrame() / 2)
         m_eCurState = STATE::knock_up;
 }
 
@@ -843,6 +838,8 @@ void Shane_FSM::knock_up_Init()
 
 void Shane_FSM::knockdown_start()
 {
+	if (m_pOwner.lock()->Get_Script<CoolTimeCheckScript>())
+
     m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
 
     Soft_Turn_ToInputDir(m_vHitDir, XM_PI * 5.f);
@@ -869,7 +866,7 @@ void Shane_FSM::knockdown_start_Init()
 
 void Shane_FSM::knockdown_end()
 {
-    if (Get_CurFrame() < 16)
+    if (m_iCurFrame < 16)
         Get_Transform()->Go_Backward();
 
     if (Is_AnimFinished())
@@ -890,28 +887,39 @@ void Shane_FSM::knockdown_end_Init()
 
 void Shane_FSM::skill_1100()
 {
-    if (Get_CurFrame() == 4)
-        AttackCollider_On(NORMAL_ATTACK);
-    else if (Get_CurFrame() == 7)
+    if (m_iCurFrame == 4)
+	{
+		AttackCollider_On(NORMAL_ATTACK, 10.f);
+		Set_ColliderOption(DARK, L"Hit_Slash_RedBlack");
+	}
+    else if (m_iCurFrame == 7)
         AttackCollider_Off();
-    else if (Get_CurFrame() == 10)
-        AttackCollider_On(NORMAL_ATTACK);
-    else if (Get_CurFrame() == 13)
+    else if (m_iCurFrame == 10)
+	{
+		AttackCollider_On(NORMAL_ATTACK, 10.f);
+		Set_ColliderOption(DARK, L"Hit_Slash_RedBlack");
+	}
+    else if (m_iCurFrame == 13)
         AttackCollider_Off();
 
     Look_DirToTarget();
 
-    if (Check_Combo(13, KEY_TYPE::LBUTTON))
-        m_eCurState = STATE::skill_1200;
-    
-
-    if (Get_FinalFrame() - Get_CurFrame() < 9)
+    if (!g_bIsCanMouseMove && !g_bCutScene)
     {
-        m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
+        if (Check_Combo(13, KEY_TYPE::LBUTTON))
+            m_eCurState = STATE::skill_1200;
+
+        Use_Skill();
+    }
+
+    if (Get_FinalFrame() - m_iCurFrame < 9)
+	{
+		if (m_pOwner.lock()->Get_Script<CoolTimeCheckScript>())
+            m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
+
         m_eCurState = STATE::b_idle;
     }
 
-    Use_Skill();
 }
 
 void Shane_FSM::skill_1100_Init()
@@ -922,7 +930,9 @@ void Shane_FSM::skill_1100_Init()
 
     m_bCanCombo = false;
 
-    m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Start_Attack_Button_Effect();
+	if (m_pOwner.lock()->Get_Script<CoolTimeCheckScript>())
+        m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Start_Attack_Button_Effect();
+
 
     Set_DirToTargetOrInput(OBJ_MONSTER);
 
@@ -932,29 +942,41 @@ void Shane_FSM::skill_1100_Init()
 
 void Shane_FSM::skill_1200()
 {
-    if (Get_CurFrame() == 12)
-        AttackCollider_On(NORMAL_ATTACK);
-    else if (Get_CurFrame() == 15)
+    if (m_iCurFrame == 12)
+    {
+        AttackCollider_On(NORMAL_ATTACK, 10.f);
+        Set_ColliderOption(DARK, L"Hit_Slash_RedBlack");
+    }
+    else if (m_iCurFrame == 15)
         AttackCollider_Off();
-    else if (Get_CurFrame() == 18)
-        AttackCollider_On(NORMAL_ATTACK);
-    else if (Get_CurFrame() == 22)
+    else if (m_iCurFrame == 18)
+    {
+        Set_ColliderOption(DARK, L"Hit_Slash_RedBlack");
+        AttackCollider_On(NORMAL_ATTACK, 10.f);
+    }
+    else if (m_iCurFrame == 22)
         AttackCollider_Off();
 
 
     Look_DirToTarget();
 
-    if (Check_Combo(25, KEY_TYPE::LBUTTON))
-        m_eCurState = STATE::skill_1300;
-
-	if (Get_FinalFrame() - Get_CurFrame() < 9)
+    if (!g_bIsCanMouseMove && !g_bCutScene)
     {
-        m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
+        if (Check_Combo(25, KEY_TYPE::LBUTTON))
+            m_eCurState = STATE::skill_1300;
+
+        Use_Skill();
+    }
+
+	if (Get_FinalFrame() - m_iCurFrame < 9)
+	{
+		if (m_pOwner.lock()->Get_Script<CoolTimeCheckScript>())
+            m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
+
         m_bCanCombo = false;
         m_eCurState = STATE::b_idle;
     }
 
-    Use_Skill();
 }
 
 void Shane_FSM::skill_1200_Init()
@@ -962,9 +984,12 @@ void Shane_FSM::skill_1200_Init()
     shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 
     animator->Set_NextTweenAnim(L"skill_1200", 0.15f, false, m_fNormalAttack_AnimationSpeed);
-
-    m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Start_Attack_Button_Effect();
-    m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Next_Combo(DEFAULT);
+	
+    if (m_pOwner.lock()->Get_Script<CoolTimeCheckScript>())
+	{
+		m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Start_Attack_Button_Effect();
+		m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Next_Combo(DEFAULT);
+	}
 
     m_bCanCombo = false;
 
@@ -977,30 +1002,40 @@ void Shane_FSM::skill_1200_Init()
 
 void Shane_FSM::skill_1300()
 {
-    if (Get_CurFrame() == 11)
-        AttackCollider_On(NORMAL_ATTACK);
-    else if (Get_CurFrame() == 14)
+    if (m_iCurFrame == 11)
+	{
+		Set_ColliderOption(DARK, L"Hit_Slash_RedBlack");
+		AttackCollider_On(NORMAL_ATTACK, 10.f);
+	}
+    else if (m_iCurFrame == 14)
         AttackCollider_Off();
-    else if (Get_CurFrame() == 24)
-        AttackCollider_On(NORMAL_ATTACK);
-    else if (Get_CurFrame() == 28)
+    else if (m_iCurFrame == 24)
+	{
+		Set_ColliderOption(DARK, L"Hit_Slash_RedBlack");
+		AttackCollider_On(NORMAL_ATTACK, 10.f);
+	}
+    else if (m_iCurFrame == 28)
         AttackCollider_Off();
 
     Look_DirToTarget();
 
-    if (Check_Combo(30, KEY_TYPE::LBUTTON))
-        m_eCurState = STATE::skill_1400;
-    
-
-
-	if (Get_FinalFrame() - Get_CurFrame() < 9)
+    if (!g_bIsCanMouseMove && !g_bCutScene)
     {
-        m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
+        if (Check_Combo(30, KEY_TYPE::LBUTTON))
+            m_eCurState = STATE::skill_1400;
+
+        Use_Skill();
+    }
+
+	if (Get_FinalFrame() - m_iCurFrame < 9)
+	{
+		if (m_pOwner.lock()->Get_Script<CoolTimeCheckScript>())
+            m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
+
         m_bCanCombo = false;
         m_eCurState = STATE::b_idle;
     }
 
-    Use_Skill();
 }
 
 void Shane_FSM::skill_1300_Init()
@@ -1008,9 +1043,12 @@ void Shane_FSM::skill_1300_Init()
     shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 
     animator->Set_NextTweenAnim(L"skill_1300", 0.15f, false, m_fNormalAttack_AnimationSpeed);
-
-    m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Start_Attack_Button_Effect();
-    m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Next_Combo(DEFAULT);
+	
+    if (m_pOwner.lock()->Get_Script<CoolTimeCheckScript>())
+	{
+		m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Start_Attack_Button_Effect();
+		m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Next_Combo(DEFAULT);
+	}
 
     m_bCanCombo = false;
 
@@ -1024,26 +1062,37 @@ void Shane_FSM::skill_1300_Init()
 
 void Shane_FSM::skill_1400()
 {
-    if (Get_CurFrame() == 4)
-        AttackCollider_On(NORMAL_ATTACK);
-    else if (Get_CurFrame() == 7)
+    if (m_iCurFrame == 4)
+	{
+		Set_ColliderOption(DARK, L"Hit_Slash_RedBlack");
+		AttackCollider_On(NORMAL_ATTACK, 10.f);
+	}
+    else if (m_iCurFrame == 7)
         AttackCollider_Off();
-    else if (Get_CurFrame() == 22)
-        AttackCollider_On(KNOCKBACK_ATTACK);
-    else if (Get_CurFrame() == 27)
+    else if (m_iCurFrame == 22)
+	{
+		Set_ColliderOption(DARK, L"Hit_Slash_RedBlack");
+		AttackCollider_On(KNOCKBACK_ATTACK, 10.f);
+	}
+    else if (m_iCurFrame == 27)
         AttackCollider_Off();
 
     Look_DirToTarget();
 
-    if (Get_FinalFrame() - Get_CurFrame() < 9)
-    {
-        m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
+    if (Get_FinalFrame() - m_iCurFrame < 9)
+	{
+		if (m_pOwner.lock()->Get_Script<CoolTimeCheckScript>())
+            m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
+
         m_bCanCombo = false;
         m_eCurState = STATE::b_idle;
     }
 
-    //Using Skill
-    Use_Skill();
+    if (!g_bIsCanMouseMove && !g_bCutScene)
+    {
+        //Using Skill
+        Use_Skill();
+    }
 }
 
 void Shane_FSM::skill_1400_Init()
@@ -1052,8 +1101,11 @@ void Shane_FSM::skill_1400_Init()
 
     animator->Set_NextTweenAnim(L"skill_1400", 0.15f, false, m_fNormalAttack_AnimationSpeed);
 
-    m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Start_Attack_Button_Effect();
-    m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Next_Combo(DEFAULT);
+	if (m_pOwner.lock()->Get_Script<CoolTimeCheckScript>())
+	{
+		m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Start_Attack_Button_Effect();
+		m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Next_Combo(DEFAULT);
+	}
 
     m_bCanCombo = false;
 
@@ -1076,7 +1128,7 @@ void Shane_FSM::skill_91100()
         m_eCurState = STATE::b_idle;
 
 
-    if (Get_CurFrame() >= 20)
+    if (m_iCurFrame >= 20)
     {
         if (vInputVector != _float3(0.f))
             m_eCurState = STATE::b_run;
@@ -1107,7 +1159,7 @@ void Shane_FSM::skill_93100()
     if (Is_AnimFinished())
         m_eCurState = STATE::b_idle;
 
-    if (Get_CurFrame() >= 20)
+    if (m_iCurFrame >= 20)
     {
         if (vInputVector != _float3(0.f))
             m_eCurState = STATE::b_run;
@@ -1130,12 +1182,12 @@ void Shane_FSM::skill_93100_Init()
 
 void Shane_FSM::skill_100100()
 {
-    if (Get_CurFrame() == 11)
+    if (m_iCurFrame == 11)
     {
         Get_Owner()->Get_Animator()->Set_RenderState(false);
         m_pWeapon.lock()->Get_ModelRenderer()->Set_RenderState(false);
     }
-    else if (Get_CurFrame() == 19)
+    else if (m_iCurFrame == 19)
     {
         Get_Owner()->Get_Animator()->Set_RenderState(true);
         m_pWeapon.lock()->Get_ModelRenderer()->Set_RenderState(true);
@@ -1149,16 +1201,19 @@ void Shane_FSM::skill_100100()
 		desc.fLimitDistance = 0.f;
 
 		_float4 vSkillPos = Get_Transform()->Get_State(Transform_State::POS) + Get_Transform()->Get_State(Transform_State::LOOK) * 2.f + _float3::Up;
-		Create_ForwardMovingSkillCollider(vSkillPos, 3.f, desc, KNOCKBACK_SKILL);
+		Create_ForwardMovingSkillCollider(Player_Skill, L"Player_SkillCollider", vSkillPos, 3.f, desc, KNOCKBACK_SKILL, 10.f, L"Hit_Slash_RedBlack");
 
     }
 
-    if (Check_Combo(40, KEY_TYPE::KEY_1))
-        m_eCurState = STATE::skill_100200;
+    if (!g_bIsCanMouseMove && !g_bCutScene)
+    {
+        if (Check_Combo(40, KEY_TYPE::KEY_1))
+            m_eCurState = STATE::skill_100200;
+    }
 
     Look_DirToTarget();
 
-    if (Get_FinalFrame() - Get_CurFrame() < 9)
+    if (Get_FinalFrame() - m_iCurFrame < 9)
     {
         m_bCanCombo = false;
         m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
@@ -1193,20 +1248,19 @@ void Shane_FSM::skill_100200()
 		desc.fLimitDistance = 0.f;
 
 		_float4 vSkillPos = Get_Transform()->Get_State(Transform_State::POS) + Get_Transform()->Get_State(Transform_State::LOOK) * 2.f + _float3::Up;
-		Create_ForwardMovingSkillCollider(vSkillPos, 1.f, desc, KNOCKBACK_SKILL);
+		Create_ForwardMovingSkillCollider(Player_Skill, L"Player_SkillCollider", vSkillPos, 1.f, desc, KNOCKBACK_SKILL, 10.f, L"Hit_Slash_RedBlack");
     }
 
     Look_DirToTarget();
 
-    if (Get_FinalFrame() - Get_CurFrame() < 9)
+    if (Get_FinalFrame() - m_iCurFrame < 9)
     {
         m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
         m_eCurState = STATE::b_idle;
     }
 
-
-    Use_Dash();
-
+    if (!g_bIsCanMouseMove && !g_bCutScene)
+        Use_Dash();
 }
 
 void Shane_FSM::skill_100200_Init()
@@ -1228,6 +1282,8 @@ void Shane_FSM::skill_100200_Init()
 
 void Shane_FSM::skill_200100()
 {
+    Calculate_CamBoneMatrix();
+
     if (!m_pCamera.expired())
     {
         _float4 vDestinationPos = (Get_Transform()->Get_State(Transform_State::POS)) + m_vSkillCamRight +
@@ -1254,7 +1310,7 @@ void Shane_FSM::skill_200100()
 		desc.fLimitDistance = 10.f;
 
 		_float4 vSkillPos = Get_Transform()->Get_State(Transform_State::POS) + Get_Transform()->Get_State(Transform_State::LOOK) * 2.f + _float3::Up;
-		Create_ForwardMovingSkillCollider(vSkillPos, 2.f, desc, NORMAL_ATTACK);
+		Create_ForwardMovingSkillCollider(Player_Skill, L"Player_SkillCollider", vSkillPos, 2.f, desc, NORMAL_ATTACK, 10.f, L"Hit_Slash_RedBlack");
 
 		Create_200100_Clone(m_iCloneIndex);
 
@@ -1263,11 +1319,13 @@ void Shane_FSM::skill_200100()
 
     Look_DirToTarget();
 
-    if (Check_Combo(42, KEY_TYPE::KEY_2))
-        m_eCurState = STATE::skill_200200;
+    if (!g_bIsCanMouseMove && !g_bCutScene)
+    {
+        if (Check_Combo(42, KEY_TYPE::KEY_2))
+            m_eCurState = STATE::skill_200200;
+    }
 
-
-    if (Get_FinalFrame() - Get_CurFrame() < 9)
+    if (Get_FinalFrame() - m_iCurFrame < 9)
     {
         m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
         m_eCurState = STATE::b_idle;
@@ -1291,12 +1349,15 @@ void Shane_FSM::skill_200100_Init()
     m_bInvincible = false;
     m_bSuperArmor = true;
 
+    Calculate_CamBoneMatrix();
     Cal_SkillCamDirection(3.f);
 }
 
 void Shane_FSM::skill_200200()
 {
-    if (Get_CurFrame() < 46)
+    Calculate_CamBoneMatrix();
+
+    if (m_iCurFrame < 46)
     {
         if (!m_pCamera.expired())
         {
@@ -1321,19 +1382,19 @@ void Shane_FSM::skill_200200()
 		desc.fLimitDistance = 3.f;
 
 		_float4 vSkillPos = Get_Transform()->Get_State(Transform_State::POS) + Get_Transform()->Get_State(Transform_State::LOOK) * 2.f + _float3::Up;
-		Create_ForwardMovingSkillCollider(vSkillPos, 2.f, desc, KNOCKBACK_SKILL);
+		Create_ForwardMovingSkillCollider(Player_Skill, L"Player_SkillCollider", vSkillPos, 2.f, desc, KNOCKBACK_SKILL, 10.f, L"Hit_Slash_RedBlack");
     }
 
     Look_DirToTarget();
 
-    if (Get_FinalFrame() - Get_CurFrame() < 9)
+    if (Get_FinalFrame() - m_iCurFrame < 9)
     {
         m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
         m_eCurState = STATE::b_idle;
     }
 
-
-    Use_Dash();
+    if (!g_bIsCanMouseMove && !g_bCutScene)
+        Use_Dash();
 }
 
 void Shane_FSM::skill_200200_Init()
@@ -1366,12 +1427,12 @@ void Shane_FSM::skill_300100()
 		desc.fLimitDistance = 0.f;
 
 		_float4 vSkillPos = Get_Transform()->Get_State(Transform_State::POS) + _float3::Up;
-		Create_ForwardMovingSkillCollider(vSkillPos, 2.5f, desc, KNOCKDOWN_SKILL);
+		Create_ForwardMovingSkillCollider(Player_Skill, L"Player_SkillCollider", vSkillPos, 2.5f, desc, KNOCKDOWN_SKILL, 10.f, L"Hit_Slash_RedBlack");
     }
 
     Look_DirToTarget();
 
-    if (Get_FinalFrame() - Get_CurFrame() < 9)
+    if (Get_FinalFrame() - m_iCurFrame < 9)
     {
         m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
         m_eCurState = STATE::b_idle;
@@ -1382,7 +1443,7 @@ void Shane_FSM::skill_300100_Init()
 {
     shared_ptr<ModelAnimator> animator = Get_Owner()->Get_Animator();
 
-    animator->Set_NextTweenAnim(L"skill_300100", 0.15f, false, 1.3f);
+    animator->Set_NextTweenAnim(L"skill_300100", 0.15f, false, m_fSkillAttack_AnimationSpeed);
 
     m_bCanCombo = false;
 
@@ -1405,18 +1466,19 @@ void Shane_FSM::skill_500100()
 		desc.fLimitDistance = 0.f;
 
 		_float4 vSkillPos = Get_Transform()->Get_State(Transform_State::POS) + Get_Transform()->Get_State(Transform_State::LOOK) * 2.f + _float3::Up;
-		Create_ForwardMovingSkillCollider(vSkillPos, 2.5f, desc, KNOCKBACK_SKILL);
+		Create_ForwardMovingSkillCollider(Player_Skill, L"Player_SkillCollider", vSkillPos, 2.5f, desc, KNOCKBACK_SKILL, 10.f, L"Hit_Slash_RedBlack");
     }
 
     Look_DirToTarget();
 
-    if (Get_FinalFrame() - Get_CurFrame() < 9)
+    if (Get_FinalFrame() - m_iCurFrame < 9)
     {
         m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
         m_eCurState = STATE::b_idle;
     }
 
-    Use_Dash();
+    if (!g_bIsCanMouseMove && !g_bCutScene)
+        Use_Dash();
 }
 
 void Shane_FSM::skill_500100_Init()
@@ -1438,16 +1500,28 @@ void Shane_FSM::skill_500100_Init()
 
 void Shane_FSM::skill_502100()
 {
-    if (Get_CurFrame() == 8)
+    if (m_iCurFrame == 8)
+    {
         Get_Owner()->Get_Animator()->Set_AnimationSpeed(0.2f);
-    else if (Get_CurFrame() == 25)
+        m_pOwner.lock()->Set_TimeSlowed(false);
+    }
+    else if (m_iCurFrame == 25)
         Get_Owner()->Get_Animator()->Set_AnimationSpeed(m_fSkillAttack_AnimationSpeed);
-    else if (Get_CurFrame() == 70)
+    else if (m_iCurFrame == 56)
+        m_pOwner.lock()->Set_TimeSlowed(true);
+    else if (m_iCurFrame == 70)
         m_vCamStopPos = m_vSkillCamBonePos;
+
+    if (m_iCurFrame >= 8 && m_iCurFrame < 56)
+        TIME.Set_TimeSlow(0.1f, 0.1f);
+    
+
+
+    Calculate_CamBoneMatrix();
 
     if (!m_pCamera.expired())
     {
-        if (Get_CurFrame() < 70)
+        if (m_iCurFrame < 70)
         {
             _float4 vDir = m_vSkillCamBonePos - m_vCamBonePos;
             vDir.Normalize();
@@ -1455,7 +1529,7 @@ void Shane_FSM::skill_502100()
             m_pCamera.lock()->Get_Script<MainCameraScript>()->Set_FollowSpeed(1.5f);
             m_pCamera.lock()->Get_Script<MainCameraScript>()->Set_FixedLookTarget(m_vCamBonePos.xyz());
 
-            if (Get_CurFrame() < 26)
+            if (m_iCurFrame < 26)
                 m_pCamera.lock()->Get_Script<MainCameraScript>()->Fix_Camera(0.3f, vDir.xyz(), 2.5f);
             else 
                 m_pCamera.lock()->Get_Script<MainCameraScript>()->Fix_Camera(0.3f, vDir.xyz(), 6.f);
@@ -1480,7 +1554,7 @@ void Shane_FSM::skill_502100()
 		desc.fLimitDistance = 0.f;
 
 		_float4 vSkillPos = Get_Transform()->Get_State(Transform_State::POS) + Get_Transform()->Get_State(Transform_State::LOOK) * 2.f + _float3::Up;
-        Create_ForwardMovingSkillCollider(vSkillPos, 2.5f, desc, NORMAL_SKILL);
+        Create_ForwardMovingSkillCollider(Player_Skill, L"Player_SkillCollider", vSkillPos, 2.5f, desc, NORMAL_SKILL, 10.f, L"Hit_Slash_RedBlack");
     }
     else if (Init_CurFrame(63))
     {
@@ -1491,12 +1565,12 @@ void Shane_FSM::skill_502100()
 		desc.fLimitDistance = 0.f;
 
 		_float4 vSkillPos = Get_Transform()->Get_State(Transform_State::POS) + Get_Transform()->Get_State(Transform_State::LOOK) * 2.f + _float3::Up;
-        Create_ForwardMovingSkillCollider(vSkillPos, 2.5f, desc, KNOCKBACK_SKILL);
+        Create_ForwardMovingSkillCollider(Player_Skill, L"Player_SkillCollider", vSkillPos, 2.5f, desc, KNOCKBACK_SKILL, 10.f, L"Hit_Slash_RedBlack");
     }
 
     Look_DirToTarget();
 
-    if (Get_FinalFrame() - Get_CurFrame() < 9)
+    if (Get_FinalFrame() - m_iCurFrame < 9)
     {
         m_pOwner.lock()->Get_Script<CoolTimeCheckScript>()->Set_Skill_End();
         m_eCurState = STATE::b_idle;
@@ -1516,34 +1590,9 @@ void Shane_FSM::skill_502100_Init()
 
     AttackCollider_Off();
 
-    m_bInvincible = false;
+    m_bInvincible = true;
     m_bSuperArmor = true;
-}
 
-void Shane_FSM::Create_ForwardMovingSkillCollider(const _float4& vPos, _float fSkillRange, FORWARDMOVINGSKILLDESC desc, const wstring& SkillType)
-{
-    shared_ptr<GameObject> SkillCollider = make_shared<GameObject>();
-
-    m_pSkillCollider = SkillCollider;
-
-    m_pSkillCollider.lock()->GetOrAddTransform();
-    m_pSkillCollider.lock()->Get_Transform()->Set_State(Transform_State::POS, vPos);
-
-    auto pSphereCollider = make_shared<SphereCollider>(fSkillRange);
-    pSphereCollider->Set_CenterPos(_float3{ vPos.x,vPos.y, vPos.z });
-    m_pSkillCollider.lock()->Add_Component(pSphereCollider);
-
-    m_pSkillCollider.lock()->Get_Collider()->Set_CollisionGroup(Player_Skill);
-
-    m_pSkillCollider.lock()->Add_Component(make_shared<AttackColliderInfoScript>());
-    m_pSkillCollider.lock()->Get_Collider()->Set_Activate(true);
-    m_pSkillCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_SkillName(SkillType);
-    m_pSkillCollider.lock()->Get_Script<AttackColliderInfoScript>()->Set_ColliderOwner(m_pOwner.lock());
-    m_pSkillCollider.lock()->Set_Name(L"Player_SkillCollider");
-    m_pSkillCollider.lock()->Add_Component(make_shared<ForwardMovingSkillScript>(desc));
-    m_pSkillCollider.lock()->Get_Script<ForwardMovingSkillScript>()->Init();
-
-    CUR_SCENE->Add_GameObject(m_pSkillCollider.lock());
 }
 
 void Shane_FSM::Use_Skill()
@@ -1594,5 +1643,5 @@ void Shane_FSM::Create_200100_Clone(_uint iCloneIndex)
     }
     obj->Add_Component(make_shared<Shane_Clone_FSM>(iCloneIndex));
     obj->Get_FSM()->Init();
-    CUR_SCENE->Add_GameObject(obj);   
+    EVENTMGR.Create_Object(obj);
 }

@@ -6,6 +6,9 @@
 #include "MotionTrailDisappear.h"
 #include "SphereCollider.h"
 #include "RigidBody.h"
+#include "Model.h"
+#include "AttackColliderInfoScript.h"
+#include <MathUtils.h>
 
 
 void DragonBall_FSM::Tick()
@@ -22,8 +25,6 @@ void DragonBall_FSM::OnCollisionEnter(shared_ptr<BaseCollider> pCollider, _float
 	{
 		m_pOwner.lock()->Get_Animator()->Reset_Frame();
 
-		
-		
 		m_eCurState = STATE::Crash;
 
 		if (!m_pTarget.expired())
@@ -89,7 +90,7 @@ void DragonBall_FSM::Idle_Init()
 void DragonBall_FSM::Crash()
 {
 	if (Is_AnimFinished())
-		CUR_SCENE->Remove_GameObject(m_pOwner.lock());
+		EVENTMGR.Delete_Object(m_pOwner.lock());
 }
 
 void DragonBall_FSM::Crash_Init()

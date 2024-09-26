@@ -102,7 +102,7 @@ void Light::Set_LightType(LIGHT_TYPE type)
 
 		{
 			auto& desc = m_pShadowCamera->Get_Camera()->Get_CameraDesc();
-			desc.eType = ProjectionType::Perspective;
+			desc.eType = ProjectionType::Orthographic;
 			desc.fFOV = XM_PI / 2.f;
 			desc.fNear = 10.f;
 			desc.fFar = 1000.f;

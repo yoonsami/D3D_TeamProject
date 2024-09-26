@@ -46,9 +46,9 @@ void MainScene::Final_Tick()
 
 HRESULT MainScene::Load_Scene()
 {
-	RESOURCES.CreateModel(L"..\\Resources\\Models\\");
-	Load_DemoModel();
-	Load_Light();
+	//RESOURCES.CreateModel(L"..\\Resources\\Models\\");
+	//Load_DemoModel();
+	//Load_Light();
 	Load_Camera();
    Load_UI_Texture();
 
@@ -87,7 +87,6 @@ void MainScene::Load_Light()
 	lightObj->GetOrAddTransform()->Set_State(Transform_State::POS, _float4(0.f, 25.f, 0.f, 1.f));
 	lightObj->GetOrAddTransform()->Set_LookDir(_float3(-1.f,-1.f,-1.f));
 	{
-		// LightComponent ���� �� ����
 		shared_ptr<Light> lightCom = make_shared<Light>();
 		lightCom->Set_Diffuse(Color(1.f));
 		lightCom->Set_Ambient(Color(0.8f));

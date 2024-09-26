@@ -15,7 +15,11 @@ public:
 	{
 		PASS_MAPOBJECT,
 		PASS_MAPOBJECT_CULLNONE,
+		PASS_MAPOBJECT_WORLDNORMAL,
+		PASS_MAPOBJECT_WORLDNORMAL_CULLNONE,
+		PASS_NORMAL_CONTROL,
 		PASS_DEFAULT,
+		PASS_WATER
 	};
 	enum PASS_INFO
 	{
@@ -32,6 +36,14 @@ public:
 		PS_MAPOBJECT_INSTANCE = 11,
 		PS_MAPOBJECT_CULLNONE = 12,
 		PS_MAPOBJECT_INSTANCE_CULLNONE = 13,
+		PS_MAPOBJECT_WORLDNORMAL = 14,
+		PS_MAPOBJECT_INSTANCE_WORLDNORMAL = 15,
+		PS_MAPOBJECT_CULLNONE_WORLDNORMAL = 16,
+		PS_MAPOBJECT_INSTANCE_CULLNONE_WORLDNORMAL = 17,
+		PS_WATER = 18,
+
+		PS_MapObject_NormalControl = 21,
+		PS_MapObject_Instancing_NormalControl = 22,
 	};
 public:
 	ModelRenderer(shared_ptr<Shader> shader);
@@ -53,7 +65,7 @@ public:
 	
 	void Render_MotionBlur();
 	void Render_MotionBlur_Instancing(shared_ptr<InstancingBuffer>& buffer, shared_ptr<InstanceRenderParamDesc> renderParamDesc);
-
+	void Render_Forward();
 	void Set_Outline() { m_bHasOutline = true; }
 	InstanceID Get_InstanceID();
 	void Set_CullMode(_bool cullNone) { m_bCullNone = cullNone; }

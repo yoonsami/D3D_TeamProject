@@ -25,8 +25,14 @@ public:
 	virtual void Final_Tick();
 	virtual void Render();
 	virtual HRESULT Load_Scene();
-	virtual void Add_GameObject(shared_ptr<GameObject> object, _bool staticFlag = false);
+
+	friend class EventMgr;
 	virtual void Add_GameObject_Front(shared_ptr<GameObject> object, _bool staticFlag = false);
+
+	void Set_AttackCall(_bool bFlag) { m_bAttackCall = bFlag; }
+	_bool Get_AttackCall() { return m_bAttackCall; }
+protected:
+	virtual void Add_GameObject(shared_ptr<GameObject> object, _bool staticFlag = false);
 	virtual void Remove_GameObject(shared_ptr<GameObject> object);
 
 public:
@@ -35,14 +41,15 @@ public:
 	list<shared_ptr<GameObject>>&	Get_Objects()		{ return m_GameObjects; }
 	SCENE_STATE						Get_SceneState()	{ return m_eSceneState; }
 	LightParams&					Get_LightParams()	{ return m_LightParams; }
-	vector<shared_ptr<GameObject>>& Get_StaticObjects() { return m_StaticObject; }
+	list<shared_ptr<GameObject>>&	Get_StaticObjects() { return m_StaticObject; }
 	_float							Get_LoaingPercent() { return m_fLoadPercent; }
 	shared_ptr<GameObject>			Get_UI(const wstring& strName);
 	shared_ptr<GameObject>			Get_Camera(const wstring& cameraName);
 	shared_ptr<GameObject>			Get_UICamera();
 	shared_ptr<GameObject>			Get_MainCamera();
 	shared_ptr<GameObject>			Get_GameObject(const wstring& name);
-	
+	shared_ptr<GameObject>			Get_Player() { return m_pPlayer.lock(); }
+
 	_bool							Is_Static(shared_ptr<GameObject> obj);
 	void							Set_Name(const wstring& name)		{ m_strSceneName = name; }
 	void							Set_SceneState(SCENE_STATE state)	{ m_eSceneState = state; }
@@ -52,13 +59,13 @@ public:
 	void Render_BackBuffer();
 	
 	
-	void Load_UIFile(const wstring& path, const vector<shared_ptr<GameObject>>& staticObjects, _bool bRender = true);
+	void Load_UIFile(const wstring& path, const list<shared_ptr<GameObject>>& staticObjects, _bool bRender = true, _bool bTick = true);
 	void Load_UIFile(const wstring& path, vector<weak_ptr<GameObject>>& addedObjects);
 
 	const wstring& Get_FinalRenderTarget() { return m_wstrFinalRenderTarget; }
 
 protected:
-	void Load_MapFile(const wstring& _mapFileName,shared_ptr<GameObject> pPlayer);
+	virtual void Load_MapFile(const wstring& _mapFileName,shared_ptr<GameObject> pPlayer);
 	void PickUI();
 
 protected:
@@ -67,7 +74,6 @@ protected:
 	void Render_Shadow();
 	void Render_MotionBlur();
 	void Render_Deferred();
-	void Render_DefferedBlur();
 	void Render_SSAO();
 
 	void Render_SSAOBlur(_uint blurCount);
@@ -85,7 +91,7 @@ protected:
 	void Render_BloomMapScaling();
 	void Render_BloomFinal();
 	void Render_DOFMap();
-	void Render_DOFMapScaling();
+	void Render_DOFMapScaling(_uint blurCount);
 	void Render_DOFFinal();
 
 	void Render_Distortion();
@@ -95,10 +101,15 @@ protected:
 
 	void Render_Fog();
 	void Render_Aberration();
+	void Render_RadialBlur();
+
+	void Render_Vignette();
 
 	void Render_Debug();
 
 	void Render_UI();
+
+	void Render_AfterUI();
 
 	void Render_FXAA();
 
@@ -116,18 +127,21 @@ protected:
 	//Cache
 	vector<shared_ptr<GameObject>> m_Lights;
 	vector<shared_ptr<GameObject>> m_UI;
+	vector<shared_ptr<GameObject>> m_ButtonUI;
 
 	LightParams m_LightParams;
 	SCENE_STATE m_eSceneState = SCENE_READY;
 
 	_bool m_bSceneFinished = false;
+	_bool m_bAttackCall = false;
 
 	_uint m_iLevelIndex = 0;
 	_float4 m_vFrustumFarCorner[4];
 	_float4 m_vOffsets[14];
+	weak_ptr<GameObject> m_pPlayer;
 
 protected:
-	vector<shared_ptr<GameObject>> m_StaticObject;
+	list<shared_ptr<GameObject>> m_StaticObject;
 
 	wstring m_wstrFinalRenderTarget = L"";
 	_bool m_bRenderDebug = false;
@@ -136,7 +150,7 @@ public:
 	_float g_fBrightness = 0.f;
 	_float g_fContrast = 1.f;
 	_float g_Saturation = 1.f;
-	_float g_fShadowBias = _float(6.67628628e-05);
+	_float g_fShadowBias = _float(0.00017f);
 	_float g_fMaxWhite = 1.f;
 	_int g_iTMIndex = 1;
 
@@ -172,6 +186,7 @@ public:
 	{
 		_bool g_bMotionBlurOn = false;
 		int g_iBlurCount = 0;
+		_float g_MotionBlurPower = 1.f;
 	};
 	MotionBlurData g_MotionBlurData{};
 
@@ -203,5 +218,33 @@ public:
 	};
 	DOFData g_DOFData{};
 
+	nanoseconds time{};
+
+	nanoseconds preSecond{};
+	nanoseconds second{};
+
+	struct RadialBlurData
+	{
+		_bool g_bRadialBlurOn = false;
+		_float g_fRadialBlurStrength = 0.125f;
+		_int g_iSamples = 64;
+		_float2 g_vCenterPos = _float2(0.f);
+		_float g_fNormalRadius = 0.1f;
+	};
+	RadialBlurData g_RadialBlurData{};
+
+	struct VignetteData
+	{
+		_bool g_bVignetteOn = false;
+		_float g_fVignettePower = 2.f;
+	};
+	VignetteData g_VignetteData{};
+
+	_float g_DepthRange = 15.f;
+	_float g_ClosestDepth = 1.f;
+
+	_float g_rotX = 0.f;
+	_float g_rotY = 0.f;
+	_float g_rotZ = 0.f;
 };
 

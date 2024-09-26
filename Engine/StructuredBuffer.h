@@ -16,6 +16,7 @@ public:
 	void Create_Buffer();
 	void Copy_ToInput(void* data);
 	void Copy_FromOutput(void* data);
+	_uint Get_InputCount() { return m_iInputCount; }
 
 private:
 	void Create_Input();

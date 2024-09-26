@@ -9,8 +9,9 @@ public:
 
 public:
     virtual HRESULT Init() override;
+	virtual shared_ptr<MonoBehaviour> Copy_Script() { return make_shared<UiDamageCreate>(); }
 
-    void Create_Damage_Font(weak_ptr<GameObject> pObj);
+    void Create_Damage_Font(weak_ptr<GameObject> pObj, _float fDamage);
     void Create_Damage_Hit();
 
 private:

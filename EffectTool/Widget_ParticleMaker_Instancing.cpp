@@ -504,7 +504,7 @@ void Widget_ParticleMaker_Instancing::Create()
 	m_pTargetParticle = ParticleObj;
 
 	// For. ¾À¿¡ GameObject Ãß°¡ 
-	CUR_SCENE->Add_GameObject(ParticleObj);
+	EVENTMGR.Create_Object(ParticleObj);
 }
 
 void Widget_ParticleMaker_Instancing::Load()

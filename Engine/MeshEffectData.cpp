@@ -23,11 +23,9 @@ void MeshEffectData::Load(const wstring& path)
 
     // For. Load Desc 
     /* Property */
-    string strTag = file->Read<string>();
-    m_tDesc.pszTag = strTag.c_str();
-    m_wstrTag = Utils::ToWString(strTag);
+    m_tDesc.strTag = file->Read<string>();
     m_tDesc.fDuration = file->Read<_float>();
-    m_tDesc.bBlurOn = file->Read<_bool>();
+    m_tDesc.bLightOn = file->Read<_bool>();    
     m_tDesc.bUseFadeOut = file->Read<_bool>();
     m_tDesc.iMeshCnt = file->Read<_int>();
     m_tDesc.fCreateInterval = file->Read<_float>();
@@ -126,6 +124,15 @@ void MeshEffectData::Load(const wstring& path)
     m_tDesc.bIsLoop = (_int)mTemp._11;
     m_tDesc.bIsFollowingGroup_OnlyTranslate = (_int)mTemp._12;
     m_tDesc.bIsFollowingGroup_LooKSameDir = (_int)mTemp._13;
+    m_tDesc.fLightIntensity = mTemp._41;
+    m_tDesc.bIsFDistortion = mTemp._42;
+    m_tDesc.bIsSSD = mTemp._43;
+
+    m_tTransformDesc.iScaleSpeedType = (_int)mTemp._14;
+    m_tTransformDesc.vCurvePoint_Scale[0] = _float2(mTemp._21, mTemp._22);
+    m_tTransformDesc.vCurvePoint_Scale[1] = _float2(mTemp._23, mTemp._24);
+    m_tTransformDesc.vCurvePoint_Scale[2] = _float2(mTemp._31, mTemp._32);
+    m_tTransformDesc.vCurvePoint_Scale[3] = _float2(mTemp._33, mTemp._34);
 
     // For. Load Transform_Desc 
     /* Init Position */
@@ -159,10 +166,4 @@ void MeshEffectData::Load(const wstring& path)
     m_tTransformDesc.vRandomAxis_Max = file->Read<_float3>();
     for (_int i = 0; i < 2; i++)
         m_tTransformDesc.bBillbordAxes[i] = file->Read<_bool>();
-}
-
-void MeshEffectData::Set_Desc(DESC tDesc)
-{
-    m_tDesc = tDesc;
-    m_wstrTag = Utils::ToWString(m_tDesc.pszTag);
 }

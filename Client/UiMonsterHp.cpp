@@ -4,7 +4,8 @@
 #include "Camera.h"
 #include "MeshRenderer.h"
 
-UiMonsterHp::UiMonsterHp()
+UiMonsterHp::UiMonsterHp(_bool bIsPosChange)
+    : m_bIsPosChange(bIsPosChange)
 {
 }
 
@@ -55,11 +56,11 @@ void UiMonsterHp::Tick()
         true == m_pBgHp.expired())
 		return;
 
+    Check_Target();
     Check_Render_State();
     if (false == m_bIsRender)
         return;
 
-    Check_Target();
     Change_Hp_Ratio();
     Change_Hp_Slow();
     Update_Target_Pos();
@@ -126,9 +127,9 @@ void UiMonsterHp::Check_Target()
         //m_pFrontHp.lock()->Set_Render(false);
         //m_pBackHp.lock()->Set_Render(false);
         //m_pBgHp.lock()->Set_Render(false);
-        pScene->Remove_GameObject(m_pFrontHp.lock());
-        pScene->Remove_GameObject(m_pBackHp.lock());
-        pScene->Remove_GameObject(m_pBgHp.lock());
+        EVENTMGR.Delete_Object(m_pFrontHp.lock());
+        EVENTMGR.Delete_Object(m_pBackHp.lock());
+        EVENTMGR.Delete_Object(m_pBgHp.lock());
     }
 }
 
@@ -170,8 +171,13 @@ void UiMonsterHp::Update_Target_Pos()
     if (false == m_bIsRender)
         return;
 
-    _float4 vecPos = m_pOwner.lock()->GetOrAddTransform()->Get_State(Transform_State::POS);
-    vecPos.y = 2.f;
+    _float4 vecPos = {};
+    if (false == m_bIsPosChange)
+        vecPos = m_pOwner.lock()->GetOrAddTransform()->Get_State(Transform_State::POS);
+    else
+        vecPos = m_vecChangePos;
+
+    vecPos.y += 2.f;
     m_pFrontHp.lock()->Get_MeshRenderer()->Get_RenderParamDesc().vec4Params[1] = vecPos;
     m_pBackHp.lock()->Get_MeshRenderer()->Get_RenderParamDesc().vec4Params[1] = vecPos;
     m_pBgHp.lock()->Get_MeshRenderer()->Get_RenderParamDesc().vec4Params[1] = vecPos;

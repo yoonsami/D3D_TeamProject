@@ -70,7 +70,7 @@ void Particle::Final_Tick()
 	// For. Check End(Delete) this particle 
 	if (m_fCurrAge >= m_tDesc.fDuration)
 	{
-		CUR_SCENE->Remove_GameObject(Get_Owner());
+		EVENTMGR.Delete_Object(Get_Owner());
 		return;
 	}
 

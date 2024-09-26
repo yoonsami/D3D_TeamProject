@@ -7,6 +7,7 @@ class CounterMotionTrailScript :
 public:
     virtual HRESULT Init() override;
     virtual void Tick() override;
+	virtual shared_ptr<MonoBehaviour> Copy_Script() { return make_shared<CounterMotionTrailScript>(); }
 
 private:
     weak_ptr<GameObject> m_pMotionTrail;

@@ -4,6 +4,9 @@
 #include <Utils.h>
 #include "Model.h"
 #include "Camera.h"
+#include "MainApp.h"
+#include "MainCameraScript.h"
+#include "MeshRenderer.h"
 #ifdef _DEBUGTOOL
 
 bool VectorOfStringGetter(void* data, int n, const char** out_text)
@@ -72,8 +75,22 @@ void DebugTool::RenderOptionTab()
 {
 	if(BeginTabItem("Render Option"))
 	{
+		Separator();
 		string fps = "FPS : " + to_string(TIME.GetFPS());
 		Text(fps.c_str());
+
+		string preSecondTick = to_string(g_preSecondTick.count());
+		Text(("pre Tick : " + preSecondTick).c_str());
+
+		string preSecondRender = to_string(g_preSecondRender.count());
+		Text(("pre Render : " + preSecondRender).c_str());
+
+		string SecondTick = to_string(g_secondTick.count());
+		Text(("cur Tick : " + SecondTick).c_str());
+
+		string SecondRender = to_string(g_secondRender.count());
+		Text(("cur Render : " + SecondRender).c_str());
+
 		if (CollapsingHeader("RenderOption"))
 		{
 
@@ -130,6 +147,7 @@ void DebugTool::RenderOptionTab()
 			Scene::MotionBlurData& data = CUR_SCENE->g_MotionBlurData;
 			Checkbox("Motion Blur On", &data.g_bMotionBlurOn);
 			InputInt("Motion Blur Count", &data.g_iBlurCount);
+			DragFloat("Motion Blur Power", &data.g_MotionBlurPower,0.01f,0.f,2.f);
 
 		}
 		if (CollapsingHeader("Fog Option"))
@@ -190,9 +208,22 @@ void DebugTool::RenderOptionTab()
 				static bool hdr = true;
 
 				ImGuiColorEditFlags misc_flags = (hdr ? ImGuiColorEditFlags_HDR : 0) | (drag_and_drop ? 0 : ImGuiColorEditFlags_NoDragDrop) | (alpha_half_preview ? ImGuiColorEditFlags_AlphaPreviewHalf : (alpha_preview ? ImGuiColorEditFlags_AlphaPreview : 0)) | (options_menu ? 0 : ImGuiColorEditFlags_NoOptions);
-				DragFloat4("color", (_float*)&g_lightDiffuse);
+				ColorEdit4("color", (_float*)&g_lightDiffuse);
 
 			}
+		}
+		if (CollapsingHeader("RadialBlurData Option"))
+		{
+			_bool& g_bRadialBlurOn = CUR_SCENE->g_RadialBlurData.g_bRadialBlurOn;
+			_float& g_fRadialBlurStrength = CUR_SCENE->g_RadialBlurData.g_fRadialBlurStrength;
+			_int& g_iSamples = CUR_SCENE->g_RadialBlurData.g_iSamples;
+			_float2& g_vCenterPos = CUR_SCENE->g_RadialBlurData.g_vCenterPos;
+			_float& g_fNormalRadius = CUR_SCENE->g_RadialBlurData.g_fNormalRadius;
+			Checkbox("g_bRadialBlurOn", &g_bRadialBlurOn);
+			DragFloat("g_fRadialBlurStrength", &g_fRadialBlurStrength, 0.01f, 0.01f,1.f);
+			InputInt("g_iSamples", &g_iSamples);
+			DragFloat2("g_vCenterPos", (_float*)&g_vCenterPos, 0.01f, -0.5f,0.5f);
+			DragFloat("g_fNormalRadius", &g_fNormalRadius, 0.01f, 0.01f,1.f);
 		}
 		if (CollapsingHeader("Other Option"))
 		{
@@ -219,6 +250,16 @@ void DebugTool::RenderOptionTab()
 			_float& g_ambientRatio = CUR_SCENE->g_ambientRatio;
 			DragFloat("g_lightAttenuation", &g_lightAttenuation);
 			DragFloat("g_ambientRatio", &g_ambientRatio, 0.1f, 0.1f, 1.5f);
+			_float& g_shadowBias = CUR_SCENE->g_fShadowBias;
+			DragFloat("g_shadowBias", &g_shadowBias, 0.00001f, 0.f, 1000.f,"%.6f");
+
+			SeparatorText("Vignette");
+			_bool& g_VignetteOn = CUR_SCENE->g_VignetteData.g_bVignetteOn;
+			_float& g_fVignettePower = CUR_SCENE->g_VignetteData.g_fVignettePower;
+
+			Checkbox("g_VignetteOn", &g_VignetteOn);
+			DragFloat("g_fVignettePower", &g_fVignettePower, 0.1f, 0.0f, 20.f);
+
 		}
 
 		EndTabItem();
@@ -281,21 +322,107 @@ void DebugTool::ModelOptionTab()
 			}
 		}
 
+		Separator();
+		DragFloat("X", &CUR_SCENE->g_rotX, 0.01f, 0.f, 360);
+		DragFloat("Y", &CUR_SCENE->g_rotY, 0.01f, 0.f, 360);
+		DragFloat("Z", &CUR_SCENE->g_rotZ, 0.01f, 0.f, 360);
+		
+		Separator();
+		DragFloat2("MinMaxTessellation Dist", (_float*)&GAMEINSTANCE.m_vMinMaxTessellationDistance, 1.f, 0.01f, 1000.f);
+		DragFloat2("test", (_float*)&GAMEINSTANCE.m_vTest, 1.f, 0.01f, 1000.f);
+
 		EndTabItem();
 	}
 }
 
 void DebugTool::CameraOptionTab()
 {
-	if(CUR_SCENE->Get_MainCamera())
+	auto water = CUR_SCENE->Get_GameObject(L"Water_Plane");
+	if(water)
 	{
-		auto& desc = CUR_SCENE->Get_MainCamera()->Get_Camera()->Get_CameraDesc();
-
 		if (BeginTabItem("Camera"))
 		{
-			DragFloat("Near", &desc.fNear, 0.1f, 0.1f, 100.f);
-			DragFloat("Near", &desc.fFar, 1.f, 100.f, 5000.f);
+			static bool alpha_preview = true;
+			static bool alpha_half_preview = false;
+			static bool drag_and_drop = true;
+			static bool options_menu = true;
+			static bool hdr = true;
+			auto& desc = water->Get_MeshRenderer()->Get_RenderParamDesc();
+			ImGuiColorEditFlags misc_flags = (hdr ? ImGuiColorEditFlags_HDR : 0) | (drag_and_drop ? 0 : ImGuiColorEditFlags_NoDragDrop) | (alpha_half_preview ? ImGuiColorEditFlags_AlphaPreviewHalf : (alpha_preview ? ImGuiColorEditFlags_AlphaPreview : 0)) | (options_menu ? 0 : ImGuiColorEditFlags_NoOptions);
+			ImGui::ColorEdit4("vBaseColor1_Op1", (float*)&desc.vec4Params[1], ImGuiColorEditFlags_DisplayHSV | misc_flags);
+			ImGui::ColorEdit4("vBaseColor2_Op1", (float*)&desc.vec4Params[2], ImGuiColorEditFlags_DisplayHSV | misc_flags);
+
+			DragFloat("light intensity", &desc.floatParams[0], 0.01f, 0.f, 1.5f);
+			DragFloat("wave speed", &desc.floatParams[1], 0.01f, 0.f, 1.5f);
+			DragFloat("wave height", &desc.floatParams[2], 0.01f, 0.01f, 1.5f);
+			InputInt("Rim Power", (_int*)(&desc.intParams[0]));
+			InputInt("Specular Power", (_int*)(&desc.intParams[1]));
+
+
 			EndTabItem();
+		}
+	}
+	{
+		auto bg = CUR_SCENE->Get_UI(L"UI_Costume_Bg0");
+		if (bg)
+		{
+			if (BeginTabItem("BG UI1"))
+			{
+				_float3 vPos = bg->Get_Transform()->Get_State(Transform_State::POS).xyz();
+				DragFloat3("Pos", (_float*)&vPos);
+				bg->Get_Transform()->Set_State(Transform_State::POS, _float4(vPos, 1.f));
+
+
+
+				EndTabItem();
+			}
+		}
+	}
+	{
+		auto bg = CUR_SCENE->Get_UI(L"UI_Costume_Bg1");
+		if (bg)
+		{
+			if (BeginTabItem("BG UI2"))
+			{
+				_float3 vPos = bg->Get_Transform()->Get_State(Transform_State::POS).xyz();
+				DragFloat3("Pos", (_float*)&vPos);
+				bg->Get_Transform()->Set_State(Transform_State::POS, _float4(vPos, 1.f));
+
+
+
+				EndTabItem();
+			}
+		}
+	}
+	{
+		auto bg = CUR_SCENE->Get_Camera(L"After_UI");
+		if (bg)
+		{
+			if (BeginTabItem("After_UI Camera"))
+			{
+				_float3 vPos = bg->Get_Transform()->Get_State(Transform_State::POS).xyz();
+				DragFloat3("Pos", (_float*)&vPos);
+				bg->Get_Transform()->Set_State(Transform_State::POS, _float4(vPos, 1.f));
+
+
+				EndTabItem();
+			}
+		}
+	}
+	{
+		auto bg = CUR_SCENE->Get_GameObject(L"TestUIModel");
+		if (bg)
+		{
+			if (BeginTabItem("Model"))
+			{
+				_float3 vPos = bg->Get_Transform()->Get_State(Transform_State::POS).xyz();
+				DragFloat3("Pos", (_float*)&vPos);
+				bg->Get_Transform()->Set_State(Transform_State::POS, _float4(vPos, 1.f));
+				_float3 vRot = bg->Get_Transform()->Get_RollPitchYaw();
+				DragFloat3("Rotation", (_float*)&vRot);
+				bg->Get_Transform()->Set_Rotation(vRot);
+				EndTabItem();
+			}
 		}
 	}
 }

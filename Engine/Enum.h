@@ -28,3 +28,11 @@ enum
 {
 	MAX_TEXTURE_MAP_COUONT = static_cast<_uint>(TextureMapType::END)
 };
+
+enum class EVENT_TYPE
+{
+	CREATE_OBJECT,
+	DELETE_OBJECT,
+	SCENE_CHANGE,
+	END,
+};

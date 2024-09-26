@@ -1,16 +1,15 @@
 #pragma once
-#include "FSM.h"
+#include "Client_FSM.h"
 #include "ForwardMovingSkillScript.h"
 
 class Boss_Dellons_FSM :
-	public FSM
+	public Client_FSM
 {
 public:
 	enum class STATE
 	{
 		n_idle,
 		talk_01,
-		Intro, //skill 901100 motion
 
 
 		b_idle,
@@ -47,11 +46,6 @@ public:
 		skill_300100, // Skill 3
 		skill_400100, // Skill 4
 		skill_501100, // Skill 5
-		skill_901000,
-		skill_901100,
-		skill_902100,
-		skill_903100,
-		skill_904100,
 
 		NONE
 	};
@@ -63,26 +57,19 @@ public:
 public:
 	virtual HRESULT Init() override;
 	virtual void Tick() override;
-	virtual void Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookTarget) override;
+	virtual void Get_Hit(const wstring& skillname, _float fDamage, shared_ptr<GameObject> pLookTarget) override;
 
 
 private:
 	virtual void State_Tick() override; // 상태를 항상 업데이트해줌
 	virtual void State_Init() override; // 상태가 바뀔 때 한번 초기화 해줌
-	virtual void OnCollision(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void OnCollisionEnter(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void OnCollisionExit(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void AttackCollider_On(const wstring& skillname) override;
-	virtual void AttackCollider_Off() override;
 	virtual void Set_State(_uint iIndex) override;
 
-
+	
 	void n_idle();
 	void n_idle_Init();
 	void talk_01();
 	void talk_01_Init();
-	void Intro();
-	void Intro_Init();
 
 
 	void b_idle();
@@ -157,24 +144,14 @@ private:
 	void skill_501100();
 	void skill_501100_Init();
 
-	void skill_901000();
-	void skill_901000_Init();
-	void skill_901100();
-	void skill_901100_Init();
-	void skill_902100();
-	void skill_902100_Init();
-	void skill_903100();
-	void skill_903100_Init();
-	void skill_904100();
-	void skill_904100_Init();
 
 
 	void Battle_Start();
-	void Create_ForwardMovingSkillCollider(const _float4& vPos, _float fSkillRange, FORWARDMOVINGSKILLDESC desc, const wstring& SkillType);
 	void Summon_Wraith();
 	void Set_WraithState(_uint iAnimindex);
 	void Calculate_SkillCamRight();
 	void Set_AttackSkill_Phase1();
+	void Dead_Setting();
 
 	_float3 Calculate_TargetTurnVector();
 
@@ -197,17 +174,14 @@ private:
 	COOLTIMEINFO m_tWraithSummonCoolTime = { 2.f, 0.f };
 
 	_bool m_bSprint = false;
-	_bool m_bDetected = false;
 	_bool m_bBattleStart = false;
 	_bool m_bCounter = false;
 	_bool m_bSetPattern = false;
+	_bool m_bEvade = false;
+	_bool m_bCreateUI = false;
+
 
 	_uint m_iGroggy_Gauge = 0;
 	_uint m_iPreAttack = 100;
-	
-	_float3 m_vHeadCamDir = _float3(0.f);
-	_float4 m_vHeadBonePos = _float4(0.f);
-	_float4 m_vHeadCamPos = _float4(0.f);
-
 };
 

@@ -78,7 +78,7 @@ void LoadingScene::Final_Tick()
 	}
 }
 
-void LoadingScene::Set_StaticObjects(const vector<shared_ptr<GameObject>>& objs)
+void LoadingScene::Set_StaticObjects(const list<shared_ptr<GameObject>>& objs)
 {
     m_staticObjects.insert(m_staticObjects.begin(), objs.begin(),objs.end());
 }
@@ -95,7 +95,7 @@ shared_ptr<GameObject> LoadingScene::Get_StaticObjectFromLoader(const wstring& s
 
 void LoadingScene::Load_Ui()
 {
-    Load_UIFile(L"..\\Resources\\UIData\\UI_Loading.dat", vector<shared_ptr<GameObject>>());
+    Load_UIFile(L"..\\Resources\\UIData\\UI_Loading.dat", list<shared_ptr<GameObject>>());
 
     auto pGameobject = Get_GameObject(L"UI_Loading_Even");
     pGameobject->Add_Component(make_shared<UiLoadingScript>(true));

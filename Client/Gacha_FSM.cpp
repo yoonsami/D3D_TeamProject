@@ -115,6 +115,6 @@ void Gacha_FSM::SQ_SpecialHero_Init()
 		}
 		ObjWeapon->Get_Transform()->Set_State(Transform_State::POS, _float4{ 0.f, -1000.f,0.f,1.f });
 		ObjWeapon->Set_Name(m_Desc.strWeaponName);
-		CUR_SCENE->Add_GameObject(ObjWeapon);
+		EVENTMGR.Create_Object(ObjWeapon);
 	}
 }

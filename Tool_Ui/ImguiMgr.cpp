@@ -40,6 +40,9 @@ HRESULT ImguiMgr::Initialize(HWND& hWnd)
 
    // 폰트 태그 wstring 추가
    m_vecFontType.push_back(L"136ex");
+   m_vecFontType.push_back(L"Ori_136ex");
+   m_vecFontType.push_back(L"overwatch");
+   m_vecFontType.push_back(L"Soyo_Maple");
 
 
 
@@ -414,9 +417,9 @@ void ImguiMgr::Create_Object()
          UiObject->Set_Instancing(false);
 
          if(0 == m_iSetStaticValue)
-            CUR_SCENE->Add_GameObject(UiObject, true);
+            EVENTMGR.Create_Object(UiObject, true);
          else
-            CUR_SCENE->Add_GameObject(UiObject, false);
+            EVENTMGR.Create_Object(UiObject, false);
       }
    }
 }
@@ -450,6 +453,18 @@ void ImguiMgr::Select_Object()
             m_iPass = pGameobject->Get_MeshRenderer()->Get_Pass();
             m_tagParamDesc = pGameobject->Get_MeshRenderer()->Get_RenderParamDesc();
             m_pSampleObj->GetOrAddTransform()->Set_WorldMat(pGameobject->GetOrAddTransform()->Get_WorldMatrix());
+
+            if(nullptr != pGameobject->Get_FontRenderer())
+            {
+               m_fFontSize = pGameobject->Get_FontRenderer()->Get_Size();
+
+               _float4 vColor = pGameobject->Get_FontRenderer()->Get_Color();
+
+               m_arrColors[0] = vColor.x;
+               m_arrColors[1] = vColor.y;
+               m_arrColors[2] = vColor.z;
+               m_arrColors[3] = vColor.w;
+            }
          }
 
          ++iIndex;
@@ -564,7 +579,7 @@ void ImguiMgr::Delete_Object()
             return;
          }
 
-         CUR_SCENE->Remove_GameObject(pGameobject);
+         EVENTMGR.Delete_Object(pGameobject);
 
          m_strSelectObjName = L"";
       }
@@ -597,7 +612,7 @@ void ImguiMgr::Delete_Object()
                return;
             }
 
-            CUR_SCENE->Remove_GameObject(pGameobject);
+            EVENTMGR.Delete_Object(pGameobject);
          }
 
          
@@ -1304,7 +1319,7 @@ void ImguiMgr::Load_Ui_Desc()
             UiObject->Set_LayerIndex(Layer_UI);
             UiObject->Set_Instancing(false);
             _bool bIsStatic = file->Read<_bool>();
-            CUR_SCENE->Add_GameObject(UiObject, bIsStatic);
+            EVENTMGR.Create_Object(UiObject, bIsStatic);
 
          }
       }

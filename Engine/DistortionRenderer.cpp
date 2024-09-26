@@ -56,6 +56,7 @@ void DistortionRenderer::Render()
 			mesh->indexBuffer->Push_Data();
 
 			m_pMaterial->Tick();
+			m_pMaterial->Push_TextureMapData();
 
 			m_pShader->GetScalar("BoneIndex")->SetInt(mesh->boneIndex);
 

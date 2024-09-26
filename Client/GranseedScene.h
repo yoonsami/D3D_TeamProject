@@ -24,5 +24,8 @@ private:
 	void Load_Ui(shared_ptr<GameObject> pPlayer);
 	void Load_Debug();
 
+	void Load_NPC(const wstring& dataFileName);
+
+	void Load_HideAndSeek(shared_ptr<GameObject> pPlayer);
 
 };

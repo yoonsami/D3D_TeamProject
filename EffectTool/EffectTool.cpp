@@ -66,7 +66,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
         pMainApp->Tick();
         pMainApp->Render();
-
+        EVENTMGR.Tick();
         if (KEYTAP(KEY_TYPE::ESC))
             break;
     }

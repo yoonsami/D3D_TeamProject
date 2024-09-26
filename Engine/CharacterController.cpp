@@ -63,31 +63,48 @@ void CharacterController::Tick()
 			return;
 		auto result = m_pController->move({ vDir.x ,vDir.y  ,vDir.z }, 0.0f, fDT, PxControllerFilters());
 	}*/
-	if (!m_bJump)
+	if(m_pController)
 	{
-		auto result = m_pController->move({ 0.f ,-30.f  ,0.f }, 0.0f, fDT, PxControllerFilters());
-	
-		auto controllerPos = m_pController->getFootPosition();
-		Get_Transform()->Set_State(Transform_State::POS, _float4(_float(controllerPos.x), _float(controllerPos.y), _float(controllerPos.z), 1.f));
-
-	}
-	else
-	{
-		m_fYVelocity -= 9.8f * fDT;
-
-		auto result = m_pController->move({ 0.f ,m_fYVelocity * fDT  ,0.f }, 0.0f, fDT, PxControllerFilters());
-		auto controllerPos = m_pController->getFootPosition();
-		Get_Transform()->Set_State(Transform_State::POS, _float4(_float(controllerPos.x), _float(controllerPos.y), _float(controllerPos.z), 1.f));
-
-		if (result == PxControllerCollisionFlag::eCOLLISION_DOWN && m_fYVelocity < 0.f)
+		if (!m_bJump)
 		{
-			m_fYVelocity = 0.f;
-			m_bOnGround = true;
-			m_bJump = false;
+
+			auto result = m_pController->move({ 0.f ,-30.f * fDT  ,0.f }, 0.0f, fDT, PxControllerFilters());
+
+			auto controllerPos = m_pController->getFootPosition();
+			Get_Transform()->Set_State(Transform_State::POS, _float4(_float(controllerPos.x), _float(controllerPos.y), _float(controllerPos.z), 1.f));
+
+		}
+		else
+		{
+			m_fYVelocity -= 9.8f * fDT;
+
+			auto result = m_pController->move({ 0.f ,m_fYVelocity * fDT  ,0.f }, 0.0f, fDT, PxControllerFilters());
+			auto controllerPos = m_pController->getFootPosition();
+			Get_Transform()->Set_State(Transform_State::POS, _float4(_float(controllerPos.x), _float(controllerPos.y), _float(controllerPos.z), 1.f));
+
+			if (result == PxControllerCollisionFlag::eCOLLISION_DOWN && m_fYVelocity < 0.f)
+			{
+				m_fYVelocity = 0.f;
+				m_bOnGround = true;
+				m_bJump = false;
+			}
 		}
 	}
 
 
+}
+
+void CharacterController::Release_Controller()
+{
+	if (PHYSX.Get_PxScene())
+	{
+		if (m_pController)
+		{
+			m_pController->release();
+			m_pController = nullptr;
+		}
+
+	}
 }
 
 void CharacterController::Add_Velocity(const _float vel)

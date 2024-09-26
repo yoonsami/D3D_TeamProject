@@ -54,6 +54,21 @@ void UiTargetLockOn::Tick()
 
 void UiTargetLockOn::Late_Tick()
 {
+    /*if (true == m_pOwner.expired() ||
+        true == m_pCamera.expired() ||
+        true == m_pLockOn0.expired() ||
+        true == m_pLockOn1.expired() ||
+        true == m_pTarget.expired())
+        return;
+
+    if (false == m_bIsRender)
+        return;
+
+    Update_Target_Pos();*/
+}
+
+void UiTargetLockOn::Final_Tick()
+{
     if (true == m_pOwner.expired() ||
         true == m_pCamera.expired() ||
         true == m_pLockOn0.expired() ||
@@ -83,12 +98,16 @@ void UiTargetLockOn::Set_Target(shared_ptr<GameObject> pObj)
         m_pLockOn1.lock()->GetOrAddTransform()->Scaled(m_vecScale);
         m_pLockOn0.lock()->Set_Render(true);
         m_pLockOn1.lock()->Set_Render(true);
+        m_pLockOn0.lock()->Set_Tick(true);
+        m_pLockOn1.lock()->Set_Tick(true);
     }
     else
     {
         m_pTarget.reset();
         m_pLockOn0.lock()->Set_Render(false);
         m_pLockOn1.lock()->Set_Render(false);
+        m_pLockOn0.lock()->Set_Tick(false);
+        m_pLockOn1.lock()->Set_Tick(false);
     }
 }
 
@@ -107,6 +126,8 @@ void UiTargetLockOn::Check_Render_State()
         m_bIsRender = bValue;
         m_pLockOn0.lock()->Set_Render(m_bIsRender);
         m_pLockOn1.lock()->Set_Render(m_bIsRender);
+        m_pLockOn0.lock()->Set_Tick(m_bIsRender);
+        m_pLockOn1.lock()->Set_Tick(m_bIsRender);
     }
 }
 
@@ -137,7 +158,7 @@ void UiTargetLockOn::Change_Scale()
 void UiTargetLockOn::Update_Target_Pos()
 {
     _float4 vecPos = m_pTarget.lock()->GetOrAddTransform()->Get_State(Transform_State::POS);
-    vecPos.y = 1.f;
+    vecPos.y += 1.f;
     m_pLockOn0.lock()->Get_MeshRenderer()->Get_RenderParamDesc().vec4Params[1] = vecPos;
     m_pLockOn1.lock()->Get_MeshRenderer()->Get_RenderParamDesc().vec4Params[1] = vecPos;
     
@@ -158,5 +179,7 @@ void UiTargetLockOn::Check_Target()
         m_pTarget.reset();
         m_pLockOn0.lock()->Set_Render(false);
         m_pLockOn1.lock()->Set_Render(false);
+        m_pLockOn0.lock()->Set_Tick(false);
+        m_pLockOn1.lock()->Set_Tick(false);
     }
 }

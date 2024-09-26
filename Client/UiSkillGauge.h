@@ -9,6 +9,7 @@ public:
 
 public:
     virtual HRESULT Init() override;
+    virtual shared_ptr<MonoBehaviour> Copy_Script()override { return make_shared<UiSkillGauge>(); }
 
     void Change_Ratio(_float fRatio);
     void Change_Render(_bool bSet, SkillInfo eInfo = SkillInfo::NONE);

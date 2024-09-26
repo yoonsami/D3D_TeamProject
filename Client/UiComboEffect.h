@@ -10,6 +10,7 @@ public:
 public:
     virtual HRESULT Init() override;
     virtual void Tick() override;
+	virtual shared_ptr<MonoBehaviour> Copy_Script() { return make_shared<UiComboEffect>(); }
 
     void Start_Effect(_float4 vecPos);
 

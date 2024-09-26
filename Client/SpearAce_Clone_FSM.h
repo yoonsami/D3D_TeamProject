@@ -1,7 +1,7 @@
 #pragma once
-#include "FSM.h"
+#include "Client_FSM.h"
 class SpearAce_Clone_FSM :
-    public FSM
+    public Client_FSM
 {
 public:
     SpearAce_Clone_FSM(_uint iCloneIndex) : m_iCloneIndex(iCloneIndex) {}
@@ -15,17 +15,12 @@ public:
 public:
     virtual HRESULT Init() override;
     virtual void Tick() override;
-    virtual void OnCollision(shared_ptr<BaseCollider> pCollider, _float fGap) override {}
-    virtual void OnCollisionEnter(shared_ptr<BaseCollider> pCollider, _float fGap) override {}
-    virtual void OnCollisionExit(shared_ptr<BaseCollider> pCollider, _float fGap) override {}
     virtual void Set_State(_uint iIndex) override { m_eCurState = static_cast<STATE>(iIndex); }
-    virtual void Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookTarget) override {}
+    virtual void Get_Hit(const wstring& skillname, _float fDamage, shared_ptr<GameObject> pLookTarget) override {}
 
 protected:
     virtual void State_Tick() override;
     virtual void State_Init() override;
-    virtual void AttackCollider_On(const wstring& skillname) override {}
-    virtual void AttackCollider_Off() override {}
 
 private:
 	void Skill_Use();

@@ -10,7 +10,8 @@ public:
 public:
     virtual HRESULT Init() override;
     virtual void Tick() override;
-
+	virtual shared_ptr<MonoBehaviour> Copy_Script() { return make_shared<UIBossHpBar>(m_eBoss); }
+    void Remove_HpBar();
 
 private:
     void Check_Target();

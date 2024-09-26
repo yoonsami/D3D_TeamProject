@@ -1,9 +1,9 @@
 #pragma once
-#include "FSM.h"
+#include "Client_FSM.h"
 #include "ForwardMovingSkillScript.h"
 
 class Yeopo_FSM :
-	public FSM
+	public Client_FSM
 {
 public:
 	enum class STATE
@@ -61,17 +61,13 @@ public:
 public:
 	virtual HRESULT Init() override;
 	virtual void Tick() override;
-	virtual void Get_Hit(const wstring& skillname, shared_ptr<GameObject> pLookTarget) override;
+	virtual void Get_Hit(const wstring& skillname, _float fDamage, shared_ptr<GameObject> pLookTarget) override;
 
 
 private:
 	virtual void State_Tick() override; // 상태를 항상 업데이트해줌
 	virtual void State_Init() override; // 상태가 바뀔 때 한번 초기화 해줌
-	virtual void OnCollision(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void OnCollisionEnter(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void OnCollisionExit(shared_ptr<BaseCollider> pCollider, _float fGap) override;
-	virtual void AttackCollider_On(const wstring& skillname) override;
-	virtual void AttackCollider_Off() override;
+
 	virtual void Set_State(_uint iIndex) override;
 
 	void b_idle();
@@ -161,8 +157,8 @@ private:
 	void SQ_RideHorse_End_Init();
 
 	void RidingCoolCheck();
-	void Create_ForwardMovingSkillCollider(const _float4& vPos, _float fSkillRange, FORWARDMOVINGSKILLDESC desc, const wstring& SkillType);
 	void Create_Vehicle();
+	void Create_Chain(const wstring& wstrModelTag, const wstring& wstrAnimTag, _float fWaitTime, _float fAnimSpeed, _float3 vScale, _float3 vPosOffset);
 	void Set_VehicleState(_uint iAnimindex);
 
 	void Use_Skill();

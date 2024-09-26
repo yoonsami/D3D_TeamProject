@@ -72,7 +72,7 @@ void Transform::Set_State(Transform_State eState, const _float4& vState)
 	memcpy(m_matWorld.m[_uint(eState)], &vState, sizeof(_float4));
 	if (eState == Transform_State::POS)
 	{
-		if (Get_Owner()->Get_CharacterController())
+		if (Get_Owner()->Get_CharacterController() && Get_Owner()->Get_CharacterController()->Get_Actor())
 		{
 			Get_Owner()->Get_CharacterController()->Get_Actor()->setFootPosition({ vState.x,vState.y,vState.z });
 		}
@@ -84,7 +84,7 @@ _bool Transform::Go_Dir(const _float3& vVel)
 	_bool bResult = false;
 
 	auto controller = Get_CharacterController();
-	if(controller)
+	if(controller && controller->Get_Actor())
 	{
 		auto actor = Get_CharacterController()->Get_Actor();
 
@@ -112,7 +112,7 @@ _bool Transform::Go_Straight()
 	vDir.Normalize();
 
 	auto controller = Get_CharacterController();
-	if (controller)
+	if (controller && controller->Get_Actor())
 	{
 		auto actor = Get_CharacterController()->Get_Actor();
 
@@ -136,7 +136,7 @@ _bool Transform::Go_Backward()
 	vDir.Normalize();
 
 	auto controller = Get_CharacterController();
-	if (controller)
+	if (controller && controller->Get_Actor())
 	{
 		auto actor = Get_CharacterController()->Get_Actor();
 
@@ -160,7 +160,7 @@ _bool Transform::Go_Left()
 	vDir.Normalize();
 
 	auto controller = Get_CharacterController();
-	if (controller)
+	if (controller && controller->Get_Actor())
 	{
 		auto actor = Get_CharacterController()->Get_Actor();
 
@@ -186,7 +186,7 @@ _bool Transform::Go_Right()
 	vDir.Normalize();
 
 	auto controller = Get_CharacterController();
-	if (controller)
+	if (controller && controller->Get_Actor())
 	{
 		auto actor = Get_CharacterController()->Get_Actor();
 
@@ -215,7 +215,7 @@ _bool Transform::Go_Up()
 	vDir.Normalize();
 
 	auto controller = Get_CharacterController();
-	if (controller)
+	if (controller && controller->Get_Actor())
 	{
 		auto actor = Get_CharacterController()->Get_Actor();
 
@@ -243,7 +243,7 @@ _bool Transform::Go_Down()
 	vDir.Normalize();
 
 	auto controller = Get_CharacterController();
-	if (controller)
+	if (controller && controller->Get_Actor())
 	{
 		auto actor = Get_CharacterController()->Get_Actor();
 
@@ -270,7 +270,7 @@ void Transform::Go_Horizontally_Up()
 	vDir.Normalize();
 
 	auto controller = Get_CharacterController();
-	if (controller)
+	if (controller && controller->Get_Actor())
 	{
 		auto actor = Get_CharacterController()->Get_Actor();
 
@@ -292,7 +292,7 @@ void Transform::Go_Horizontally_Down()
 	vDir.Normalize();
 
 	auto controller = Get_CharacterController();
-	if (controller)
+	if (controller && controller->Get_Actor())
 	{
 		auto actor = Get_CharacterController()->Get_Actor();
 

@@ -14,7 +14,7 @@ void Pass::DrawIndexed(UINT indexCount, UINT startIndexLocation, INT baseVertexL
 {
 	BeginDraw();
 	{
-		CONTEXT->DrawIndexed(indexCount, startIndexLocation, baseVertexLocation);
+			CONTEXT->DrawIndexed(indexCount, startIndexLocation, baseVertexLocation);
 	}
 	EndDraw();
 }

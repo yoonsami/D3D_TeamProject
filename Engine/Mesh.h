@@ -24,9 +24,7 @@ public:
     shared_ptr<VertexBuffer> Get_VertexBuffer() { return m_pVB; }
     shared_ptr<IndexBuffer> Get_IndexBuffer() { return m_pIB; }
 
-private:
-
-private:
+protected:
     shared_ptr<Geometry<VTXTEXNORTANDATA>> m_pGeometry;
     shared_ptr<VertexBuffer> m_pVB;
     shared_ptr<IndexBuffer> m_pIB;

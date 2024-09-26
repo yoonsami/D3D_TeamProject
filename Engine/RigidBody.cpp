@@ -29,9 +29,9 @@ void RigidBody::Late_Tick()
 	
 	_float3 vCenterPos = Get_Owner()->Get_CullPos();
 	_float fRadius = Get_Owner()->Get_CullRadius();
-	if(CUR_SCENE && CUR_SCENE->Get_GameObject(L"Player"))
+	if(CUR_SCENE && CUR_SCENE->Get_Player())
 	{
-		_float3 vPlayerPos = CUR_SCENE->Get_GameObject(L"Player")->Get_Transform()->Get_State(Transform_State::POS).xyz();
+		_float3 vPlayerPos = CUR_SCENE->Get_Player()->Get_Transform()->Get_State(Transform_State::POS).xyz();
 
 		if (fRadius == 0.f)
 			m_pRigidBody->setActorFlag(PxActorFlag::eDISABLE_SIMULATION, false);
@@ -131,6 +131,37 @@ void RigidBody::Create_CapsuleRigidBody(_float3 centerPos, _float radius, _float
 	shape->release();
 
 	PHYSX.Get_PxScene()->addActor(*m_pRigidBody);
+}
+
+void RigidBody::AddOrRemoveRigidBody_FromScene(_bool flag)
+{
+	PxActor** actors = nullptr;
+	PxU32 numActors = PHYSX.Get_PxScene()->getNbActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC);
+	_bool alreadyHas = false;
+	if (numActors > 0)
+	{
+		actors = new PxActor * [numActors];
+		PHYSX.Get_PxScene()->getActors(PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC, actors, numActors);
+		for (PxU32 i = 0; i < numActors; ++i)
+		{
+			if (actors[i] == m_pRigidBody)
+			{
+				alreadyHas = true;
+			}
+		}
+		delete[] actors;
+	}
+
+	if (flag)
+	{
+		if(alreadyHas == false)
+			PHYSX.Get_PxScene()->addActor(*m_pRigidBody);
+	}
+	else
+	{
+		if (alreadyHas == true)
+		PHYSX.Get_PxScene()->removeActor(*m_pRigidBody);
+	}
 }
 
 void RigidBody::RemoveRigidBody()

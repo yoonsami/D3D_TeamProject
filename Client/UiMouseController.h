@@ -9,6 +9,8 @@ public:
 public:
     virtual HRESULT Init() override;
     virtual void Tick() override;
+    virtual shared_ptr<MonoBehaviour> Copy_Script()override { return make_shared<UiMouseController>(); }
+    void Change_Mouse_State(_bool bValue);
 
 private:
     void Change_Mouse_State();
@@ -25,7 +27,5 @@ private:
     _float  m_fMaxTime      = {};
     _float  m_fCheckTime    = {};
     _float  m_fRatio        = {};
-
-    _bool   m_bIsCanMove    = { true };
 };
 
